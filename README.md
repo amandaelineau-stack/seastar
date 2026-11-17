@@ -19,7 +19,7 @@ The `main` branch of this fork is the upstream code plus this README: the fixes 
 
 <img src="docs/ifcb_app_icon.png" alt="IFCB pipeline app icon: the IFCB instrument, an arrow, and a grid of plankton vignettes" width="128" align="right">
 
-A desktop app, in development, that takes an IFCB cruise from the raw files to the EcoTaxa import files without the command line. It is a [Streamlit](https://streamlit.io) page that runs on your own computer, so no data leaves it, and it uses SeaSTAR for the EcoTaxa tables. The code will be published here.
+A desktop app, in development, that takes an IFCB cruise from the raw files to the EcoTaxa import files without the command line. It is a [Streamlit](https://streamlit.io) page that runs on your own computer, so no data leaves it, and it uses SeaSTAR for the EcoTaxa tables. The code is in [`ifcb_app/`](ifcb_app).
 
 The app follows the folder layout of the NOC IFCB projects:
 
@@ -41,7 +41,35 @@ ifcb_sn<serial>_<cruise ID>_<name>/          e.g. ifcb_sn225_ce26008_ar7e
 | 4 · EcoTaxa tables | `seastar ifcb_to_ecotaxa`, with the features, the metadata and the extractor version. | Planned |
 | 5 · Quality check | Compares the column names (row 1) and types `[f]`/`[t]` (row 2) of every EcoTaxa table of a project before the upload. | Planned |
 
-On Windows, the app starts from a desktop shortcut: a launcher installs what it needs (Streamlit, WHOI ifcb-features) on the first start and opens the page in the web browser.
+### Starting the app
+
+On Windows:
+
+1. Double-click `ifcb_app/create_shortcut.bat` once: it puts an **IFCB pipeline** shortcut on the desktop.
+2. Start the app from that shortcut. Keep the black window open while you use the app, and close it to stop the app.
+
+The launcher (`start_ifcb_app.bat`) uses the conda environment `ifcb_app` when there is one, otherwise the Python of the computer. On the first start, it installs the requirements (Streamlit, pandas, Pillow and WHOI ifcb-features). Installing WHOI ifcb-features needs [git](https://git-scm.com).
+
+On any system:
+
+```
+cd ifcb_app
+pip install -r requirements.txt
+python -m streamlit run app.py
+```
+
+A feature extraction runs as its own process. It goes on if the browser tab is closed, as long as the computer stays on and awake. On one core, a bin of about 5,000 ROIs takes about 2 minutes.
+
+### Files
+
+| File | Role |
+|---|---|
+| `app.py` | The page |
+| `project.py` | Naming, creating and scanning a project folder (no interface code) |
+| `extract_features.py` | The feature extraction started by the page; it can also be run alone: `python extract_features.py <project folder> --workers 8` |
+| `whoi/extract_slim_features.py` | Copied unchanged from WHOI ifcb-features v1.3.1 (MIT licence, `whoi/LICENSE`): this script is not part of the pip package |
+| `test_project.py` | Test of `project.py`: `python test_project.py` |
+| `make_icon.py` | Draws `ifcb_app.ico` and `docs/ifcb_app_icon.png` |
 
 ---
 
