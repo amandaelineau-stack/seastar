@@ -2,18 +2,20 @@
 
 ## About this fork
 
-This is Amanda Elineau's (National Oceanography Centre) fork of [NOC-OI/seastar](https://github.com/NOC-OI/seastar). It is where fixes for the IFCB → EcoTaxa processing of NOC cruises are prepared. Each fix goes upstream as its own pull request, so it can be merged on its own:
+This is Amanda Elineau's (National Oceanography Centre) fork of [NOC-OI/seastar](https://github.com/NOC-OI/seastar). It is where fixes for the IFCB → EcoTaxa processing of NOC cruises are prepared. The fixes are gathered in the `all-fixes` branch, which upstream reviews as one pull request:
 
-| Pull request | What it fixes |
+| Pull request | What it brings |
 |---|---|
-| [#11](https://github.com/NOC-OI/seastar/pull/11) | Crashes that hide the real error: `TypeError` on the first missing value (every bin with WHOI ifcb-features v1.3.1 files), `NameError: RuntimeException` |
-| [#12](https://github.com/NOC-OI/seastar/pull/12) | An input path that matches no file is reported instead of being dropped without a message |
-| [#13](https://github.com/NOC-OI/seastar/pull/13) | `-p` was unknown (`project_name` declared twice); `--help` crashed at `--stationid` |
-| [#14](https://github.com/NOC-OI/seastar/pull/14) | The `--bindcol` hint suggests `t` or `f` from the values, instead of always `f` |
-| [#15](https://github.com/NOC-OI/seastar/pull/15) | Every column of the feature files goes to EcoTaxa (274 columns instead of 88 with the 240 WHOI v4 features) |
-| [#16](https://github.com/NOC-OI/seastar/pull/16) | No depth of 5 m written when `--depth` is not given |
+| [#18](https://github.com/NOC-OI/seastar/pull/18) (into `bugfix`) | All the fixes below (first opened one by one as #11–#16) |
+| | Crashes that hide the real error: `TypeError` on the first missing value (every bin with WHOI ifcb-features v1.3.1 files), `NameError: RuntimeException` |
+| | An input path that matches no file is reported instead of being dropped without a message |
+| | `-p` was unknown (`project_name` declared twice); `--help` crashed at `--stationid` |
+| | The `--bindcol` hint suggests `t` or `f` from the values, instead of always `f` |
+| | Every column of the feature files goes to EcoTaxa (274 columns instead of 88 with the 240 WHOI v4 features) |
+| | No depth of 5 m written when `--depth` is not given |
+| [#17](https://github.com/NOC-OI/seastar/pull/17) (into `devel`) | The IFCB → EcoTaxa app described below |
 
-The `main` branch of this fork is the upstream code plus this README: the fixes are in their pull request branches.
+The `main` branch of this fork is the upstream code plus this README and the app: the fixes are in the `all-fixes` branch.
 
 ## IFCB → EcoTaxa app
 
