@@ -6,7 +6,7 @@
 Each zip has the images, the WHOI features, the metadata of step 4 (metadata/metadata_ecotaxa.csv) and the
 feature extractor version; with --blobs, the blob of each image as a second image (img_rank 1).
 Bins that already have their zip are skipped. With --bins, only those bins (or all the bins of a day, e.g.
-D20260729) are made, even if they have their zip: the new zip replaces the old one once complete. Zips: ecotaxa_import_zip_seastar/<CRUISE NAME>_<bin>.zip.
+D20260729) are made, even if they have their zip: the new zip replaces the old one once complete. Zips: ecotaxa_import_zip_seastar/<cruise name>_<bin>.zip (e.g. pap2025new_D20250810T164958_IFCB225.zip).
 Progress is written to log/ecotaxa_status.json (read by the app) and log/ecotaxa_<date>.log.
 """
 import argparse
@@ -31,7 +31,7 @@ ZIP_DIR = "ecotaxa_import_zip_seastar"
 
 def zip_path(root, bin_name):
     info = project.scan_name(root)
-    prefix = info["cruise_name"].upper() + "_" if info else ""
+    prefix = info["cruise_name"] + "_" if info else ""  # lower case, as the project folder (was upper case before 2026-11-23)
     return os.path.join(root, ZIP_DIR, prefix + bin_name + ".zip")
 
 
@@ -41,8 +41,9 @@ def plan(root):
     without = set(project.bins_without_features(root))
     with_features = [b for b in bins if b not in without]
     zip_dir = os.path.join(root, ZIP_DIR)
-    made = set(os.listdir(zip_dir)) if os.path.isdir(zip_dir) else set()  # one listing: a check per bin is slow on Y:
-    done = [b for b in with_features if os.path.basename(zip_path(root, b)) in made]
+    # one listing: a check per bin is slow on Y:. Lower case: the older AR7E_<bin>.zip names count too
+    made = {f.lower() for f in os.listdir(zip_dir)} if os.path.isdir(zip_dir) else set()
+    done = [b for b in with_features if os.path.basename(zip_path(root, b)).lower() in made]
     return [b for b in with_features if b not in set(done)], sorted(without), done
 
 
