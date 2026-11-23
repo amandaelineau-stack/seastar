@@ -138,8 +138,11 @@ FLOW_ML_PER_MIN = 0.25  # IFCB sample flow rate, as in WHOI's ml_analyzed
 STATS_CSV = "bin_stats.csv"
 # Per bin, from the .hdr and .adc. stream_*: ROI y (pixels) of the images, median and 10-90 % range; cut_left: images
 # starting at x = 0; right_edge / cut_right: the largest x + width of the bin and how many images reach it.
+# syringe_ml: SyringeSampleVolume of the .hdr (mL), the volume the run was set to analyse.
 STATS_FIELDS = ["rois", "ml_analyzed", "rois_per_ml", "triggers", "images_per_trigger", "run_time", "humidity",
-                "humidity_alarm", "stream_y_median", "stream_y_spread", "cut_left", "right_edge", "cut_right"]
+                "humidity_alarm", "stream_y_median", "stream_y_spread", "cut_left", "right_edge", "cut_right",
+                "syringe_ml"]
+HDR_ONLY = {"syringe_ml"}  # added later: for bins counted before, read from the .hdr alone, not the .adc again
 
 
 def bin_stats(root, bins, progress=None):
@@ -150,7 +153,11 @@ def bin_stats(root, bins, progress=None):
     new = [b for b in bins if not stats_complete(stats.get(b))]
     raw = raw_bin_paths(root, new)
     for i, b in enumerate(new, 1):
-        stats[b] = read_bin_stats(raw[b], b)
+        old = stats.get(b) or {}
+        if old and all(k in old for k in STATS_FIELDS if k not in HDR_ONLY):
+            stats[b] = {**old, "syringe_ml": hdr_numbers(raw[b])("SyringeSampleVolume")}
+        else:
+            stats[b] = read_bin_stats(raw[b], b)
         if i % 20 == 0:
             save_stats(root, stats)
         if progress:
@@ -189,10 +196,8 @@ def stats_complete(s):
     return bool(s) and all(k in s for k in STATS_FIELDS)
 
 
-def read_bin_stats(path, bin_name):
-    """STATS_FIELDS of one bin; path = the bin's files without extension."""
-    import statistics
-    from ifcbkit.adc import parse_adc_file
+def hdr_numbers(path):
+    """number(key, default=NaN): a value of the .hdr of a bin (path = the bin's files without extension)."""
     from ifcbkit.header import parse_hdr
     with open(path + ".hdr", encoding="utf-8", errors="replace") as f:
         hdr = parse_hdr(f.read().splitlines())
@@ -202,7 +207,14 @@ def read_bin_stats(path, bin_name):
             return float(hdr.get(key, default))
         except (TypeError, ValueError):
             return default
+    return number
 
+
+def read_bin_stats(path, bin_name):
+    """STATS_FIELDS of one bin; path = the bin's files without extension."""
+    import statistics
+    from ifcbkit.adc import parse_adc_file
+    number = hdr_numbers(path)
     run_time = number("runTime", 0)
     ml = FLOW_ML_PER_MIN * (run_time - number("inhibitTime", 0)) / 60
     rois = [r for r in parse_adc_file(bin_name, path + ".adc", extended=True).values() if r["width"] > 0]
@@ -217,7 +229,8 @@ def read_bin_stats(path, bin_name):
             "humidity_alarm": number("HumidityAlarmThreshold(%)", 90.0),
             "stream_y_median": statistics.median(ys) if ys else float("nan"), "stream_y_spread": q(0.9) - q(0.1),
             "cut_left": sum(1 for r in rois if r["x"] <= 0), "right_edge": right,
-            "cut_right": sum(1 for r in rois if r["x"] + r["width"] >= right)}
+            "cut_right": sum(1 for r in rois if r["x"] + r["width"] >= right),
+            "syringe_ml": number("SyringeSampleVolume")}
 
 
 def load_stats(root):
@@ -253,59 +266,40 @@ def cut_percent(stats):
 
 
 # Which figure shows each check of the bins: qc.py colours a bin only in the figures of its reasons.
-# Removed 2026-11-19 after Emilie's review: "Few images" (a low count against the cruise median is often real:
-# plankton is patchy and follows gradients) and "High humidity" (the IFCB stops above its alarm threshold, so an
-# acquired bin never exceeds it). The image count and the humidity stay in the QC values, without a flag.
-BIN_CHECKS = {"Small volume analysed": "rois_per_ml", "Short run": "rois_per_ml",
-              "Gap in the sampling": "rois_per_ml", "Few images per trigger": "images_per_trigger",
-              "Stream shifted": "stream_y_median", "Stream wide": "stream_y_spread",
-              "Many cut images": "cut_percent"}
+# Only the well-established checks, as asked by Emilie Houliez (NOC IFCB QC, 2026-11-23): a check must not use the
+# cruise as its reference (a whole cruise with a problem would look good). Removed: few images and small volume
+# (against the cruise median; a low count is often real), high humidity (the IFCB stops above its alarm), stream
+# shifted or wide and many cut images (against the cruise median: to be developed by the NOC IFCB QC work). Their
+# values stay in the QC columns, without a flag.
+BIN_CHECKS = {"Incomplete run": "rois_per_ml", "Few images per trigger": "images_per_trigger",
+              "Gap in the sampling": "rois_per_ml"}
+RUN_TIME_PER_ML = 1200 / 5  # s: a 5 mL sample takes about 1200 s
+TRIGGER_LOSS = 0.15  # more than 15 % fewer images than triggers: bad
 
 
 def check_bins(stats, bin_time):
-    """Bins that look failed, and gaps in the sampling, compared with the rest of the cruise.
+    """Bins that look failed (incomplete run, images lost) and gaps in the sampling (meaningless for discrete
+    samples, e.g. Niskin bottles analysed in batches).
     stats: {bin: bin_stats values}; bin_time: bin name -> datetime. Returns problems like metadata.build."""
-    import math
     import statistics
     problems = []
 
     def add(check, b, detail):
         problems.append({"check": check, "bin": b, "spreadsheet row": "", "detail": detail})
 
-    if len(stats) < 3:
-        return problems
-
-    def known(k):
-        return [s[k] for s in stats.values() if not math.isnan(s.get(k, float("nan")))]
-
-    def median(k):
-        return statistics.median(known(k)) if known(k) else float("nan")
-
-    ml = median("ml_analyzed")
-    y_med, spread = median("stream_y_median"), median("stream_y_spread")
-    y_dev = statistics.median(abs(v - y_med) for v in known("stream_y_median")) if known("stream_y_median") else 0
-    cut = cut_percent(stats)
-    cut_med = statistics.median(cut.values()) if cut else 0
     for b, s in sorted(stats.items()):
         def v(k):
             return s.get(k, float("nan"))
-        if s["ml_analyzed"] < 0.5 * ml:
-            add("Small volume analysed", b,
-                f"{s['ml_analyzed']:.2f} mL, the cruise median is {ml:.2f} mL: run stopped early?")
-        if v("run_time") < 1000 and s["ml_analyzed"] < 2.5:  # thresholds of the California IFCB network QC
-            add("Short run", b, f"{v('run_time'):.0f} s and {s['ml_analyzed']:.2f} mL: incomplete sample?")
-        if v("images_per_trigger") < 0.9:  # California IFCB network QC: images lost
-            add("Few images per trigger", b, f"{s['rois']:.0f} images for {v('triggers'):.0f} triggers "
-                f"({v('images_per_trigger'):.2f}): triggers without an image")
-        if abs(v("stream_y_median") - y_med) > max(50, 4 * y_dev):
-            add("Stream shifted", b, f"images centred at y = {v('stream_y_median'):.0f} px, the cruise median is "
-                f"{y_med:.0f} px: flow deviated?")
-        if v("stream_y_spread") > 1.5 * spread:
-            add("Stream wide", b, f"images spread over {v('stream_y_spread'):.0f} px in y, the cruise median is "
-                f"{spread:.0f} px: bad flow?")
-        if cut.get(b, 0) > max(5, 3 * cut_med):
-            add("Many cut images", b, f"{cut[b]:.1f} % of the images touch the edge of the camera field, the cruise "
-                f"median is {cut_med:.1f} %")
+        expected = RUN_TIME_PER_ML * v("syringe_ml")  # NaN without SyringeSampleVolume: not checked (flag 9)
+        if v("run_time") < 0.5 * expected:
+            add("Incomplete run", b, f"{v('run_time'):.0f} s, less than half the {expected:.0f} s expected for a "
+                f"{v('syringe_ml'):g} mL sample")
+        if s["rois"] < (1 - TRIGGER_LOSS) * v("triggers"):
+            add("Few images per trigger", b, f"{s['rois']:.0f} images for {v('triggers'):.0f} triggers: "
+                f"{100 * (1 - s['rois'] / v('triggers')):.0f} % fewer images than triggers (more than "
+                f"{100 * TRIGGER_LOSS:.0f} %)")
+    if len(stats) < 3:
+        return problems
     times = sorted((bin_time(b), b) for b in stats)
     steps = [(t2 - t1).total_seconds() for (t1, _), (t2, _) in zip(times, times[1:])]
     gap = max(3600, 3 * statistics.median(steps))  # shortcut: one threshold for the cruise, not per station
@@ -320,18 +314,21 @@ def check_bins(stats, bin_time):
 # (Emilie's) can write the same file: the EcoTaxa step only reads it.
 QC_CSV = "qc_bins.csv"
 # (stat, EcoTaxa column, check that flags it or None for a value without flag, flag when it does). IODE scale (BODC):
-# 1 good, 3 probably bad (doubtful), 4 bad (failed), 9 missing value. Thresholds of 3 or 4 to agree with the team.
+# 1 good, 3 probably bad (doubtful), 4 bad (failed), 9 missing value.
 QC_COLUMNS = [("rois", "sample_qc_images", None, None),  # value only, no flag (see BIN_CHECKS)
-              ("ml_analyzed", "sample_qc_ml_analyzed", "Small volume analysed", 3),
-              ("run_time", "sample_qc_run_time_s", "Short run", 4),
-              ("images_per_trigger", "sample_qc_images_per_trigger", "Few images per trigger", 3),
+              ("ml_analyzed", "sample_qc_ml_analyzed", None, None),
+              ("syringe_ml", "sample_qc_syringe_volume_ml", None, None),
+              ("run_time", "sample_qc_run_time_s", "Incomplete run", 4),
+              ("images_per_trigger", "sample_qc_images_per_trigger", "Few images per trigger", 4),
               ("humidity", "sample_qc_humidity_pct", None, None),
-              ("stream_y_median", "sample_qc_stream_y_median_px", "Stream shifted", 3),
-              ("stream_y_spread", "sample_qc_stream_y_spread_px", "Stream wide", 3),
-              ("cut_percent", "sample_qc_cut_images_pct", "Many cut images", 3)]
+              ("stream_y_median", "sample_qc_stream_y_median_px", None, None),
+              ("stream_y_spread", "sample_qc_stream_y_spread_px", None, None),
+              ("cut_percent", "sample_qc_cut_images_pct", None, None)]
+QC_NEEDS = {"run_time": "syringe_ml"}  # the check of a value also needs this one, or its flag is 9
 QC_GOOD, QC_MISSING = 1, 9
-QC_PROCEDURE = ("Provisional IFCB app checks (IFCB field guide, WHOI IFCB dashboard, California IFCB network QC), "
-                "to be replaced by the NOC IFCB QC procedure")
+QC_PROCEDURE = ("IFCB app checks: incomplete run (run time < half the expected, 1200 s per 5 mL of SyringeSampleVolume), "
+                "images per trigger (more than 15 % fewer images than triggers); the other values without flag; "
+                "NOC IFCB QC procedure in development")
 SAMPLE_COLUMNS_MAX = 60  # EcoTaxa accepts at most 60 sample_ columns
 
 
@@ -351,6 +348,8 @@ def qc_rows(stats, problems):
             missing = v is None or v != v  # None or NaN
             row[column] = "" if missing else int(v) if float(v).is_integer() else v  # 847, not 847.0
             if check:
+                need = s.get(QC_NEEDS.get(key, key))
+                missing = missing or need is None or need != need
                 row[column + "_flag"] = QC_MISSING if missing else bad if check in reasons.get(b, []) else QC_GOOD
                 flags.append(row[column + "_flag"])
         known = [f for f in flags if f != QC_MISSING]

@@ -47,7 +47,8 @@ else:
 bin_problems = project.check_bins(stats, metadata.bin_time)
 project.write_qc(str(folder), stats, bin_problems)  # for the EcoTaxa tables, step 5
 rows = project.qc_rows(stats, bin_problems)
-LABELS = {"sample_qc_images": "Images", "sample_qc_ml_analyzed": "mL analysed", "sample_qc_run_time_s": "Run time (s)",
+LABELS = {"sample_qc_images": "Images", "sample_qc_ml_analyzed": "mL analysed",
+          "sample_qc_syringe_volume_ml": "Syringe volume (mL)", "sample_qc_run_time_s": "Run time (s)",
           "sample_qc_images_per_trigger": "Images per trigger", "sample_qc_humidity_pct": "Humidity (%)",
           "sample_qc_stream_y_median_px": "Stream position, y (px)", "sample_qc_stream_y_spread_px": "Stream width, y (px)",
           "sample_qc_cut_images_pct": "Cut images (%)"}
@@ -56,8 +57,7 @@ FLAG_COLOURS = {3: "background-color: rgba(235,104,52,.30)", 4: "background-colo
 bad = [r for r in rows if r["sample_qc_flag"] in (3, 4)]
 gaps = [p for p in bin_problems if p["check"] == "Gap in the sampling"]
 if bad:
-    n4 = sum(1 for r in bad if r["sample_qc_flag"] == 4)
-    st.warning(f"**{len(bad)} bin(s) to look at** out of {len(rows)}: {n4} bad (flag 4), {len(bad) - n4} doubtful (flag 3). "
+    st.warning(f"**{len(bad)} bad bin(s)** (flag 4) out of {len(rows)}. "
                "Failed acquisitions can be moved out of `raw/` before the features; then **Rescan**.")
 else:
     st.success(f"No bin to look at among the {len(rows)} bins.")
@@ -72,9 +72,9 @@ if shown:
                                if col.name in flags.columns else [""] * len(col), axis=0)
     st.dataframe(styled, width="stretch", hide_index=True,
                  column_config={"Reasons": st.column_config.TextColumn(width="large")})
-st.caption("One row per bin, one column per value measured: **orange** = probably bad (flag 3), **red** = bad "
-           "(flag 4), grey = not measured (flag 9); *Flag* is the worst of the bin (1 = good). Images and humidity "
-           "have no flag. Provisional checks, to be replaced by the NOC IFCB QC procedure. Flags of the IODE scale, "
+st.caption("One row per bin, one column per value measured: **red** = bad (flag 4), grey = not checked (flag 9); "
+           "*Flag* is the worst of the bin (1 = good). Only the run time and the images per trigger are checked, the "
+           "other values have no flag (the NOC IFCB QC procedure is in development). Flags of the IODE scale, "
            f"used by BODC. Saved in `metadata/{project.QC_CSV}` and put in the EcoTaxa tables (step 5) as sample "
            "columns: each value (`sample_qc_images`, `sample_qc_cut_images_pct`…) with its flag (`…_flag`), the worst "
            "flag (`sample_qc_flag`), the reasons (`sample_qc_flags`) and the procedure, so that doubtful bins are known "
@@ -87,20 +87,16 @@ if bin_problems:
                                     "detail": st.column_config.TextColumn("Detail", width="large")})
 with st.expander("What each check means"):
     st.markdown("""
-These checks are **provisional**, to be replaced by the NOC IFCB QC procedure.
+Only the well-established checks, none of them compared with the rest of the cruise (a whole cruise with a problem
+would look good). The NOC IFCB QC procedure, in development, will add more.
 
-- **Short run** (< 1000 s and < 2.5 mL, bad), **Small volume analysed** (< 50 % of the cruise median, probably bad):
-  a failed acquisition, or a run stopped early.
-- **Few images per trigger** (< 0.9): triggers without an image, images lost.
-- **Stream shifted**, **Stream wide**: the images are not in their usual band of the camera field; bad flow (blocked
-  needle, pump).
-- **Many cut images** (> 5 % and > 3 × the cruise median): images touching the left or right edge of the camera field.
-- **Gap in the sampling**: no bin for a long time (instrument stopped, or bins missing from `raw/`); not a flag.
-- The number of images and the humidity are given without a flag: a low count is often real (plankton is patchy
-  and follows gradients), and the IFCB stops above its humidity alarm, so an acquired bin never exceeds it.
-
-Sources: the RoiXY graph of IFCBacquire and the IFCB field guide, the WHOI IFCB dashboard, the QC script of the
-California IFCB network (see the protocol).""")
+- **Incomplete run** (bad, flag 4): the run time is less than half the expected one. A 5 mL sample takes about
+  1200 s; the expected time is scaled to the `SyringeSampleVolume` of the `.hdr` (600 s for 5 mL, 300 s for 2.5 mL).
+- **Few images per trigger** (bad, flag 4): more than 15 % fewer images than triggers, images lost.
+- **Gap in the sampling**: no bin for a long time (instrument stopped, or bins missing from `raw/`); not a flag, and
+  meaningless for discrete samples (e.g. Niskin bottles analysed in batches).
+- The other values (images, volume, humidity, position and width of the stream, cut images) are given without a
+  flag, and the ROI x / ROI y plot below shows the flow of each bin.""")
 
 df, variables, _ = qc.frame(stats, None, bin_problems)
 figures = qc.charts(df, variables, None)
@@ -116,12 +112,11 @@ st.subheader("Position of the images in the camera field")
 st.caption("ROI x against ROI y of every image of a bin, as the RoiXY graph of IFCBacquire and the plot of the IFCB "
            "dashboard. The images should form one compact band: spread out, or moved, they point to a bad flow. A point "
            "is the top left corner of an image; orange: the image touches the left or right edge, so it is cut (a long "
-           "image starting in the middle can reach the right edge). The bins flagged *Stream shifted*, *Stream wide* "
-           "or *Many cut images* come first.")
-flow = {p["bin"]: p["check"] for p in bin_problems if p["check"] in ("Stream shifted", "Stream wide", "Many cut images")}
-choices = sorted(flow) + [b for b in bins if b not in flow]
+           "image starting in the middle can reach the right edge). The bins with the most cut images come first.")
+cut = project.cut_percent(stats)
+choices = sorted(bins, key=lambda b: -cut.get(b, 0))
 roi_bin = st.selectbox("Bin", choices, key=f"roi_bin_{folder}",
-                       format_func=lambda b: b + (f"  ({flow[b]})" if b in flow else ""))
+                       format_func=lambda b: f"{b}  ({cut.get(b, 0):.1f} % cut images)")
 frame_right = max(s.get("right_edge", 0) for s in stats.values())
 with st.spinner("Reading the .adc file…"):
     rois = project.roi_positions(str(folder), roi_bin)
