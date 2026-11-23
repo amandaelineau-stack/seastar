@@ -1,6 +1,6 @@
 """Feature extraction of an IFCB project with WHOI ifcb-features v1.3.1, run in the background by the app.
 
-    python extract_features.py <project folder> [--workers N] [--bins BIN_OR_DAY ...]
+    python extract_features.py <project folder> [--workers N] [--bins BIN_OR_DAY ...] [--include-bad]
 
 Bins that already have a feature file are skipped. With --bins, only those bins (or all the bins of a day,
 e.g. D20260729) are done, even if they have a feature file: its new version replaces it. Outputs, as WHOI's extract_features_batch.py:
@@ -8,6 +8,7 @@ e.g. D20260729) are done, even if they have a feature file: its new version repl
     whoi_v4_V131_features/blobs/<day>/<bin>_blobs_v4.zip
     whoi_v4_V131_features/feature_extractor_versions.csv  (bin, extractor, release: joined by SeaSTAR per bin)
     log/bin_stats.csv  (images and mL analysed of each bin, for the quality check figures)
+The bad bins of the raw data check (sample_qc_flag 4 in metadata/qc_bins.csv) are left out, unless --include-bad.
 Progress is written to log/features_status.json (read by the app) and log/features_<date>.log.
 """
 import argparse
@@ -42,6 +43,8 @@ def main():
     parser.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     parser.add_argument("--bins", nargs="+", metavar="BIN_OR_DAY",
                         help="only these bins (names, or days DYYYYMMDD), done again even if they have features")
+    parser.add_argument("--include-bad", action="store_true",
+                        help="also the bad bins of the raw data check (sample_qc_flag 4), left out by default")
     args = parser.parse_args()
 
     root = os.path.abspath(args.project)
@@ -52,6 +55,7 @@ def main():
             sys.exit("Not a complete bin or day of raw/: " + "; ".join(unknown))
     else:
         todo = project.bins_without_features(root)
+    todo, bad = project.skip_bad(root, todo, args.include_bad)
     os.makedirs(log_dir, exist_ok=True)
     raw_paths = project.raw_bin_paths(root, todo)
     stats = project.load_stats(root)
@@ -76,6 +80,8 @@ def main():
     save()
     for w in warnings:
         say(f"WARNING: {w}\n")
+    if bad:
+        say(f"{len(bad)} bad bin(s) (flag 4) not processed (--include-bad to process them): {', '.join(bad)}\n")
     say(f"WHOI ifcb-features {version}, {len(todo)} bins to process with {args.workers} workers\n")
     t0 = time.time()
     with ProcessPoolExecutor(max_workers=args.workers) as pool:

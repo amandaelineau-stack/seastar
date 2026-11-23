@@ -15,7 +15,7 @@ st.header("5 · EcoTaxa tables")
 folder = common.current_project()
 
 
-def start_ecotaxa(root, settings, n, names=None):
+def start_ecotaxa(root, settings, n, names=None, include_bad=False):
     (root / "log").mkdir(exist_ok=True)
     (root / "log" / "ecotaxa_settings.json").write_text(json.dumps(settings, indent=1), encoding="utf-8")
     cmd = [sys.executable, str(common.REPO / "make_ecotaxa.py"), str(root), "--operator", settings["operator"],
@@ -27,6 +27,8 @@ def start_ecotaxa(root, settings, n, names=None):
         cmd.append("--blobs")
     if names:
         cmd += ["--bins", *names]
+    if include_bad:
+        cmd.append("--include-bad")
     err = open(root / "log" / "ecotaxa_errors_python.log", "a", encoding="utf-8")
     proc = subprocess.Popen(cmd, cwd=common.REPO, stdout=subprocess.DEVNULL, stderr=err,
                             creationflags=common.NO_WINDOW)  # stdout: the log has it
@@ -95,7 +97,7 @@ def ecotaxa_panel():
     todo, without, done = make_ecotaxa.plan(str(folder))
     if not todo:
         st.success(f"Every bin with features has its EcoTaxa zip ({len(done)}). To make some zips again, choose them below.")
-    names, n = common.bin_choice(folder, "eco", len(todo), "All bins, skipping those that already have their EcoTaxa zip")
+    names, n, include_bad = common.bin_choice(folder, "eco", todo, "All bins, skipping those that already have their EcoTaxa zip")
     if not n:
         if names is not None:
             st.caption("Choose days or bins: their zips are made again and replace the old ones once complete.")
@@ -128,7 +130,7 @@ def ecotaxa_panel():
                 + (" · bins without features are left out" if names is not None and without else ""))
     st.button("Make the EcoTaxa tables", type="primary", disabled=not ok_name, on_click=start_ecotaxa,
               args=(folder, {"operator": operator.strip(), "qcdby": qcdby, "project_name": project_name, "ship": ship,
-                             "cruise": cruise, "workers": int(workers), "blobs": blobs}, n, names))
+                             "cruise": cruise, "workers": int(workers), "blobs": blobs}, n, names, include_bad))
 
 
 ecotaxa_panel()

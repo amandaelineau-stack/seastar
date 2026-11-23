@@ -176,6 +176,8 @@ other pages; each page shows it at the top, with a **Rescan** button.
 
 - The page shows the WHOI version installed (e.g. `v1.3.1 (commit 1d0687e)`) and tells you when WHOI has
   published a newer release. Keep one version for the whole cruise.
+- **Include the bad bins** (unchecked by default): the bins flagged bad in step 2 (flag 4) are not processed
+  unless it is checked. The menu, step 1 and *Current status* count them apart.
 - **Bins**: *All bins, skipping those already extracted* (the default), or *Chosen days or bins, done again* to pick days and bins
   whose features are extracted again (for example a bin that failed).
 - Choose the number of cores (leave one or two free) → **Run the feature extraction**.
@@ -233,6 +235,7 @@ The figures of steps 2 and 4 are saved in `figures/` automatically.
 - Type once: **Operator** and **Metadata checked by** (full names, at least 5 characters), **Project**
   (`sample_project`, e.g. `ce26008_AR7E`), **Ship**, **Cruise**. They are remembered for the project.
 - Keep **Add the blob of each image as a second image (img_rank 1)** checked, unless blobs are not wanted.
+- **Include the bad bins** (unchecked by default), as in step 3.
 - **Bins**: *All bins, skipping those that already have their EcoTaxa zip* (the default), or *Chosen days or bins, done again*, for example the bins
   whose row of the spreadsheet was corrected (save the metadata of step 4 again first). The new zip replaces the old one only once
   it is complete.
@@ -365,7 +368,7 @@ python show_positions.py Y:\ifcb_sn225_jc278_pap2025new D20250810T164958_IFCB225
 python extract_features.py Y:\ifcb_sn225_jc278_pap2025new --workers 14
 ```
 
-- Skips the bins that already have a feature file; safe to run again after a stop.
+- Skips the bins that already have a feature file; safe to run again after a stop. The bad bins of step 2 (`sample_qc_flag` 4 in `metadata/qc_bins.csv`: incomplete run, images lost) are left out, unless `--include-bad` (in the app: the box *Include the bad bins*, unchecked by default).
 - One bin or one day at a time: `--bins D20250810T164958_IFCB225 D20250811` does only those bins (a day = all its
   bins), even if they already have features: the new files replace the old ones. A name that is not in `raw/` stops
   the script before anything is done, with the closest bin names.
@@ -419,7 +422,7 @@ python make_ecotaxa.py Y:\ifcb_sn225_jc278_pap2025new ^
 (`^` continues the line in the Windows command prompt; use `\` in bash.)
 
 - Without `--blobs`, the zips have no blobs.
-- Skips the bins that already have their zip; a failed bin leaves no zip. Each feature file is checked first (a
+- Skips the bins that already have their zip; a failed bin leaves no zip. The bad bins of step 2 (`sample_qc_flag` 4 in `metadata/qc_bins.csv`: incomplete run, images lost) are left out, unless `--include-bad` (in the app: the box *Include the bad bins*, unchecked by default). Each feature file is checked first (a
   `roi_number` column, one row per image): a bin that fails is listed, with no zip.
 - One bin or one day at a time: `--bins …`, as for the features. The bins are made again even if they have their
   zip; the new zip replaces the old one only once it is complete, so a failure keeps the old zip. For example, after

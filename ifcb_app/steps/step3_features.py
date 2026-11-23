@@ -13,12 +13,12 @@ st.header("3 · Extract the features")
 folder = common.current_project()
 
 
-def start_extraction(root, workers, n, names=None):
+def start_extraction(root, workers, n, names=None, include_bad=False):
     (root / "log").mkdir(exist_ok=True)
     err = open(root / "log" / "features_errors_python.log", "a", encoding="utf-8")
     # Its own process: it goes on if the browser tab is closed (not if this computer sleeps); stdout: the log has it
     proc = subprocess.Popen([sys.executable, str(common.REPO / "extract_features.py"), str(root), "--workers", str(workers)]
-                     + (["--bins", *names] if names else []), cwd=common.REPO, stdout=subprocess.DEVNULL, stderr=err,
+                     + (["--bins", *names] if names else []) + (["--include-bad"] if include_bad else []), cwd=common.REPO, stdout=subprocess.DEVNULL, stderr=err,
                      creationflags=common.NO_WINDOW)
     common.mark_started(root, "features", proc, n, workers=workers, whoi_version=project.whoi_version())
     st.session_state["extraction_started"] = True
@@ -82,7 +82,7 @@ def features_panel():
     todo = common.bins_without_features(str(folder))
     if not todo:
         st.success("Every complete bin has its feature file. To extract some bins again, choose them below.")
-    names, n = common.bin_choice(folder, "feat", len(todo), "All bins, skipping those already extracted")
+    names, n, include_bad = common.bin_choice(folder, "feat", todo, "All bins, skipping those already extracted")
     if not n:
         if names is not None:
             st.caption("Choose days or bins: their features are extracted again and replace the old ones.")
@@ -92,7 +92,7 @@ def features_panel():
     workers = c1.number_input("Cores to use", 1, cores, max(1, cores - 2),
                               help=f"This computer has {cores}. Keep one or two free to go on working.")
     c2.markdown(f"**{n} bin{'s' if n > 1 else ''}** to process, about **{common.duration(common.minutes(n, workers))}**")
-    st.button("Run the feature extraction", type="primary", on_click=start_extraction, args=(folder, workers, n, names))
+    st.button("Run the feature extraction", type="primary", on_click=start_extraction, args=(folder, workers, n, names, include_bad))
 
 
 if WHOI_VERSION:

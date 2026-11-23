@@ -360,6 +360,22 @@ def qc_rows(stats, problems):
     return rows
 
 
+def bad_bins(root):
+    """Bins flagged bad (sample_qc_flag 4) in metadata/qc_bins.csv, sorted: not processed in steps 3 and 5 unless
+    asked (--include-bad, or the box of the app). [] before the raw data check."""
+    path = os.path.join(root, "metadata", QC_CSV)
+    if not os.path.isfile(path):
+        return []
+    with open(path, newline="", encoding="utf-8") as f:
+        return sorted(r["bin"] for r in csv.DictReader(f) if r.get("sample_qc_flag") == str(4))
+
+
+def skip_bad(root, bins, include_bad):
+    """(bins to process, bad bins left out)."""
+    bad = set() if include_bad else set(bad_bins(root))
+    return [b for b in bins if b not in bad], [b for b in bins if b in bad]
+
+
 def write_qc(root, stats, problems):
     """metadata/qc_bins.csv (qc_rows of every bin): put in the EcoTaxa tables as sample columns. Returns its path."""
     rows = qc_rows(stats, problems)
@@ -539,8 +555,12 @@ def warnings(root, step):
                            "or is still running.")
             elif last.get("errors"):
                 out.append(f"The last {what} had {len(last['errors'])} failed bin(s): " + _some(last["errors"], 3))
+    bad = set(bad_bins(root))
+    if bad:
+        out.append(f"{len(bad)} bad bin(s) (flag 4 in metadata/{QC_CSV}) are not processed in steps 3 and 5, unless "
+                   "asked (--include-bad, or the box of the app): " + _some(sorted(bad)))
     if step in ("ecotaxa", "all"):
-        without = bins_without_features(root)
+        without = [b for b in bins_without_features(root) if b not in bad]
         if without:
             out.append(f"{len(without)} bin(s) without features are left out of the EcoTaxa tables: run "
                        "extract_features.py first. " + _some(without))
@@ -645,13 +665,17 @@ def timeline(root):
         times = [t for t in times if t]
         return f"{_when(min(times))} → {_when(max(times))}" if times else ""
     flagged = [b for b in bins if b not in meta or meta[b].get("sample_metadata_flag", "1") != "1"] if meta_t else []
+    bad = {b for b in bins if qc.get(b, {}).get("sample_qc_flag") == "4"}
+    good = [b for b in bins if b not in bad]
     report = last_report(root, "metadata_check")
     return {"project": os.path.basename(os.path.normpath(root)), "bins": len(bins),
             "days": f"{bins[0][1:9]} → {bins[-1][1:9]}" if bins else "",
             "raw_check": _when(qc_t), "bad_bins": sum(1 for b in bins if qc.get(b, {}).get("sample_qc_flag") == "4"),
-            "features": sum(1 for b in bins if b in feats), "features_made": span(feats.get(b) for b in bins),
+            "good_bins": len(good), "features": sum(1 for b in good if b in feats),
+            "bad_features": sum(1 for b in bad if b in feats), "features_made": span(feats.get(b) for b in bins),
             "metadata": _when(meta_t), "metadata_flagged": len(flagged),
-            "metadata_check": report[1] if report else "", "zips": len(made), "zips_made": span(zips[b] for b in made),
+            "metadata_check": report[1] if report else "", "zips": sum(1 for b in good if b in zips),
+            "bad_zips": sum(1 for b in bad if b in zips), "zips_made": span(zips[b] for b in made),
             "order": order}
 
 

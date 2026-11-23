@@ -82,6 +82,10 @@ def test_create_and_scan():
         import csv
         qc_file = project.write_qc(root, cruise, project.check_bins(cruise, t))
         rows = {r["bin"]: r for r in csv.DictReader(open(qc_file, encoding="utf-8"))}
+        bad = ["D20260802T010000_IFCB225", "D20260802T060000_IFCB225"]  # images lost, incomplete run
+        assert project.bad_bins(root) == bad
+        assert project.skip_bad(root, sorted(cruise), False) == ([b for b in sorted(cruise) if b not in bad], bad)
+        assert project.skip_bad(root, sorted(cruise), True) == (sorted(cruise), [])
         assert rows["D20260802T060000_IFCB225"]["sample_qc_flags"] == "Incomplete run", rows
         r6 = rows["D20260802T060000_IFCB225"]
         assert r6["sample_qc_run_time_s_flag"] == "4" and r6["sample_qc_flag"] == "4", r6

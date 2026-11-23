@@ -127,22 +127,33 @@ def duration(minutes):
     return f"{minutes / 60:.1f} h" if minutes >= 90 else f"{max(1, round(minutes))} min"
 
 
-def bin_choice(folder, key, n_new, new_label):
-    """Which bins to run (steps 3 and 5): (None, n_new) for the bins not done yet (`new_label`), or (the days and
-    bins picked, their number of bins) for --bins: those are done again even if already done."""
-    mode = st.radio("Bins", ["new", "chosen"], horizontal=True, key=f"{key}_mode_{folder}", label_visibility="collapsed",
-                    format_func=lambda m: f"{new_label} ({n_new} to do)" if m == "new" else "Chosen days or bins, done again")
+def bin_choice(folder, key, todo, new_label):
+    """Which bins to run (steps 3 and 5): (None, n, include_bad) for the bins `todo` not done yet (`new_label`), or
+    (the days and bins picked, their number of bins, include_bad) for --bins: those are done again even if already
+    done. The bad bins of step 2 (flag 4) are left out unless the box is checked (--include-bad)."""
+    radio = st.container()
+    bad = set(project.bad_bins(str(folder)))
+    include = st.checkbox(f"Include the bad bins ({len(bad)} with flag 4 in the raw data check)", value=False,
+                          key=f"{key}_bad_{folder}", disabled=not bad,
+                          help="Bins flagged bad in step 2 (incomplete run, images lost) are not processed by default: "
+                               "see the table of step 2 for their reasons.")
+
+    def kept(bins):
+        return [b for b in bins if include or b not in bad]
+    n_new = len(kept(todo))
+    mode = radio.radio("Bins", ["new", "chosen"], horizontal=True, key=f"{key}_mode_{folder}", label_visibility="collapsed",
+                       format_func=lambda m: f"{new_label} ({n_new} to do)" if m == "new" else "Chosen days or bins, done again")
     if mode == "new":
-        return None, n_new
+        return None, n_new, include
     bins = complete_bins(str(folder))
     per_day = {}
     for b in bins:
         per_day[b[:9]] = per_day.get(b[:9], 0) + 1
-    c1, c2 = st.columns(2)
+    c1, c2 = radio.columns(2)  # under the choice, above the box
     days = c1.multiselect("Days", list(per_day), key=f"{key}_days_{folder}",
                           format_func=lambda d: f"{d} ({per_day[d]} bins)")
     picked = c2.multiselect("Bins", [b for b in bins if b[:9] not in days], key=f"{key}_bins_{folder}")
-    return days + picked, sum(per_day[d] for d in days) + len(picked)
+    return days + picked, len(kept([b for b in bins if b[:9] in days] + picked)), include
 
 
 # ---------------------------------------------------------------- what the steps know of each other
@@ -194,7 +205,8 @@ def _progress(folder):
         n = len({p["bin"] for p in project.check_bins(stats, metadata.bin_time) if p["check"] != "Gap in the sampling"})
         out[2] = ("check", f"{plural_bins(n)} to look at") if n else ("done", "no bin to look at")
     feat = extraction_status(folder)
-    left = max(0, n_bins - n_feat)
+    bad = set(project.bad_bins(str(folder)))  # not processed by default: they do not keep a step from being done
+    left = sum(1 for b in bins_without_features(str(folder)) if b not in bad)
     if feat and feat.get("running"):
         out[3] = ("running", f"running: {feat['done']} / {plural_bins(feat['total'])}")
     elif left:
@@ -211,8 +223,9 @@ def _progress(folder):
     eco = extraction_status(folder, "ecotaxa")
     if eco and eco.get("running"):
         out[5] = ("running", f"running: {eco['done']} / {plural_bins(eco['total'])}")
-    elif n_zip < n_bins:  # done only when every complete bin has its zip
-        out[5] = ("todo", f"{plural_bins(n_bins - n_zip)} without a zip"
+    elif n_zip < n_bins - len(bad):  # done when every bin but the bad ones has its zip
+        # shortcut: counts, not which bins have a zip; a bad bin made into a zip hides a good bin without one
+        out[5] = ("todo", f"{plural_bins(n_bins - len(bad) - n_zip)} without a zip"
                   + (f" ({n_feat - n_zip} ready: features done)" if n_feat > n_zip else ""))
     elif eco and eco.get("errors"):
         out[5] = ("check", f"{plural_bins(len(eco['errors']))} failed in the last run")
