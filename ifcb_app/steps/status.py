@@ -27,8 +27,10 @@ if not chosen:
     st.stop()
 
 
-def done(n, total):
-    return f"{'✅' if total and n == total else '⚠️' if n else '☐'} {n} / {total}"
+def done(n, total, n_bad, bad):
+    """n good bins done of total, and the bad bins (flag 4, not processed by default)."""
+    return (f"{'✅' if total and n == total else '⚠️' if n else '☐'} {n} / {total}"
+            + (f" · bad: {n_bad} / {bad}" if bad else ""))
 
 
 rows = []
@@ -43,9 +45,11 @@ for i, name in enumerate(chosen):
     rows.append({"Project": name, "Bins": t["bins"], "Days": t["days"],
                  "Raw data check": (f"{'⚠️' if t['bad_bins'] else '✅'} {t['raw_check']}"
                                     + (f" · {t['bad_bins']} bad" if t["bad_bins"] else "")) if t["raw_check"] else "☐",
-                 "Features": done(t["features"], t["bins"]), "Features made": t["features_made"],
+                 "Features": done(t["features"], t["good_bins"], t["bad_features"], t["bad_bins"]),
+                 "Features made": t["features_made"],
                  "Metadata": meta, "Last metadata check": t["metadata_check"],
-                 "EcoTaxa tables": done(t["zips"], t["bins"]), "Tables made": t["zips_made"],
+                 "EcoTaxa tables": done(t["zips"], t["good_bins"], t["bad_zips"], t["bad_bins"]),
+                 "Tables made": t["zips_made"],
                  "Order of the steps": f"⚠️ {len(t['order'])} to look at" if t["order"] else "✅",
                  "_order": t["order"]})
 bar.empty()
@@ -53,7 +57,8 @@ bar.empty()
 table = pd.DataFrame(rows)
 st.dataframe(table.drop(columns="_order"), width="stretch", hide_index=True,
              column_config={"Project": st.column_config.TextColumn(pinned=True)})
-st.caption("✅ done · ⚠️ to look at · ☐ not done. *Features* and *EcoTaxa tables*: bins done / complete bins. Dates: "
+st.caption("✅ done · ⚠️ to look at · ☐ not done. *Features* and *EcoTaxa tables*: bins done / complete bins, without "
+           "the bad bins of the raw data check (flag 4, not processed unless asked), counted apart. Dates: "
            "when the files were written (oldest → newest). *Metadata flagged*: bins not in the spreadsheet or with an "
            "empty or doubtful value (`sample_metadata_flag` 3 or 9 in the EcoTaxa tables).")
 

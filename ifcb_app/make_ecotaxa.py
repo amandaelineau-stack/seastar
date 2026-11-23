@@ -2,11 +2,13 @@
 
     python make_ecotaxa.py <project folder> --operator "Full Name" [--qcdby "Full Name"] [--project-name NAME]
                            [--ship SHIP] [--cruise CRUISE] [--blobs] [--workers N] [--bins BIN_OR_DAY ...]
+                           [--include-bad]
 
 Each zip has the images, the WHOI features, the metadata of step 4 (metadata/metadata_ecotaxa.csv) and the
 feature extractor version; with --blobs, the blob of each image as a second image (img_rank 1).
 Bins that already have their zip are skipped. With --bins, only those bins (or all the bins of a day, e.g.
 D20260729) are made, even if they have their zip: the new zip replaces the old one once complete. Zips: ecotaxa_import_zip_seastar/<cruise name>_<bin>.zip (e.g. pap2025new_D20250810T164958_IFCB225.zip).
+The bad bins of the raw data check (sample_qc_flag 4 in metadata/qc_bins.csv) are left out, unless --include-bad.
 Progress is written to log/ecotaxa_status.json (read by the app) and log/ecotaxa_<date>.log.
 """
 import argparse
@@ -126,6 +128,8 @@ def main():
     parser.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 2))
     parser.add_argument("--bins", nargs="+", metavar="BIN_OR_DAY",
                         help="only these bins (names, or days DYYYYMMDD), made again even if they have their zip")
+    parser.add_argument("--include-bad", action="store_true",
+                        help="also the bad bins of the raw data check (sample_qc_flag 4), left out by default")
     args = parser.parse_args()
 
     root = os.path.abspath(args.project)
@@ -140,6 +144,7 @@ def main():
         skipped = [b for b in chosen if b in without]
     else:
         todo, _, _ = plan(root)
+    todo, bad = project.skip_bad(root, todo, args.include_bad)
     os.makedirs(os.path.join(root, ZIP_DIR), exist_ok=True)
     raw = project.raw_bin_paths(root, todo)
     stats = project.load_stats(root)  # image counts, to check the feature files
@@ -167,6 +172,8 @@ def main():
     save()
     for w in warnings:
         say(f"WARNING: {w}\n")
+    if bad:
+        say(f"{len(bad)} bad bin(s) (flag 4) not processed (--include-bad to process them): {', '.join(bad)}\n")
     say(f"SeaSTAR EcoTaxa zips, {len(todo)} bins, {args.workers} at a time, blobs: {args.blobs}, "
               f"metadata columns: {len(bindcols)}\n")
     t0 = time.time()
