@@ -21,6 +21,9 @@ COLUMN_RE = re.compile(r"(sample|object|acq|process)_[a-z0-9_]+")
 OUTPUT_CSV, OUTPUT_JSON = "metadata_ecotaxa.csv", "metadata_ecotaxa.json"
 # From the bin name, as SeaSTAR writes object_date/object_time: the time the IFCB analysed the sample
 BIN_COLUMNS = {"sample_date": "t", "sample_time": "t"}
+# Per bin, on the IODE scale of the QC: 1 every field filled, 3 a value out of range, 9 a value missing (or the bin not in
+# the spreadsheet); and which fields are missing. A bin without metadata still gets its EcoTaxa table, flagged.
+FLAG_COLUMNS = {"sample_metadata_flag": "f", "sample_metadata_missing": "t"}
 
 
 def read_spreadsheet(path, sheet=None):
@@ -150,6 +153,7 @@ def build(rows, bin_column, mapping, bins):
         dt = bin_time(b)
         row = {"bin": b, "sample_date": dt.strftime("%Y-%m-%d"), "sample_time": dt.strftime("%H:%M:%S")}
         line, r = by_bin.get(b, (None, {}))
+        missing, doubtful = ([] if line else ["not in the spreadsheet"]), False
         for f in fields:
             m = mapping[f["field"]]
             v = as_text(r.get(m["source"])) if m.get("source") else ""
@@ -166,14 +170,19 @@ def build(rows, bin_column, mapping, bins):
                 else:
                     if (f.get("min") and x < float(f["min"])) or (f.get("max") and x > float(f["max"])):
                         problem("Out of range", b, f"{f['field']} = {v} {f['unit']}, expected {f['min']} to {f['max']}", line)
+                        doubtful = True
+            if v == "":
+                missing.append(f["field"])
             for c in f["ecotaxa_columns"].split(";"):
                 row[c] = v
+        row["sample_metadata_flag"] = 9 if missing else 3 if doubtful else 1
+        row["sample_metadata_missing"] = "; ".join(missing) or "ok"
         niskin = parse_datetime(row.get("sample_niskin_date", ""), row.get("sample_niskin_time", ""))
         if niskin and niskin > dt:
             problem("Niskin after analysis", b, f"Niskin {niskin:%Y-%m-%d %H:%M} is after the IFCB analysis {dt:%Y-%m-%d %H:%M}", line)
         out.append(row)
     check_track(out, problem)
-    return columns, out, problems
+    return {**columns, **FLAG_COLUMNS}, out, problems
 
 
 MAX_SHIP_KNOTS = 20  # faster than any research ship: one of the two positions is wrong

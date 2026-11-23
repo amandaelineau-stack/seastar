@@ -41,6 +41,10 @@ def test_build():
     assert r3["object_depth_min"] == "5" and r3["object_lat"] == ""  # bin not in the spreadsheet
     assert r1["sample_niskin_id"] == "21"
     assert r2["sample_salinity_pss"] == ""
+    assert (r1["sample_metadata_flag"], r1["sample_metadata_missing"]) == (1, "ok")
+    assert (r2["sample_metadata_flag"], r2["sample_metadata_missing"]) == (9, "niskin_date; niskin_time; salinity; niskin_id")
+    assert r3["sample_metadata_flag"] == 9 and r3["sample_metadata_missing"].startswith("not in the spreadsheet; lat")
+    assert columns["sample_metadata_flag"] == "f"
     checks = {p["check"] for p in problems}
     assert any("n/a" in p["detail"] for p in problems)
     assert "Bin without metadata" in checks and "Bin not in raw/" in checks

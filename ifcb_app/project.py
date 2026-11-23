@@ -544,8 +544,22 @@ def warnings(root, step):
         if without:
             out.append(f"{len(without)} bin(s) without features are left out of the EcoTaxa tables: run "
                        "extract_features.py first. " + _some(without))
-        if not os.path.isfile(os.path.join(root, "metadata", "metadata_ecotaxa.csv")):
+        meta_csv = os.path.join(root, "metadata", "metadata_ecotaxa.csv")
+        if not os.path.isfile(meta_csv):
             out.append("No metadata file yet (make_metadata.py): the zips would have no sample metadata.")
+        else:
+            with open(meta_csv, newline="", encoding="utf-8") as f:
+                rows = list(csv.DictReader(f))
+            if rows and "sample_metadata_flag" not in rows[0]:
+                out.append("The metadata were saved before the metadata flags: save them again (step 4, "
+                           "make_metadata.py) to get sample_metadata_flag and sample_metadata_missing.")
+            gaps = [r["bin"] for r in rows if r.get("sample_metadata_flag", "1") != "1"]
+            added = sorted(set(complete_bins(root)) - {r["bin"] for r in rows})
+            if gaps or added:
+                out.append(f"{len(gaps) + len(added)} bin(s) with missing or doubtful metadata get their EcoTaxa table "
+                           "anyway, flagged (sample_metadata_flag 3 or 9, sample_metadata_missing): "
+                           + _some(gaps + added) + ". Correct the spreadsheet, save step 4 again, then make these "
+                           "bins again.")
         if not os.path.isfile(os.path.join(root, "metadata", QC_CSV)):
             out.append("No result of the raw data check yet (step 2, make_figures.py): the zips would have no "
                        "sample_qc_ columns.")
@@ -560,6 +574,85 @@ def warnings(root, step):
             elif not report[1].endswith(", 0 point(s) to check"):
                 out.append(f"Last {name.replace('_', ' ')}: {report[1]}, see {report[0]}. Correct them first if you can.")
     return out
+
+
+def _mtimes(folder, suffix):
+    """{bin: modification time} of the files ending with `suffix` under folder. os.scandir: on Windows the times come
+    with the folder listing, no extra request per file on the network drive."""
+    out, todo = {}, [folder]
+    while todo:
+        try:
+            entries = os.scandir(todo.pop())
+        except OSError:
+            continue
+        with entries:
+            for e in entries:
+                if e.is_dir():
+                    todo.append(e.path)
+                elif e.name.endswith(suffix) and BIN_RE.search(e.name):
+                    out[BIN_RE.search(e.name).group()] = e.stat().st_mtime
+    return out
+
+
+def _when(t):
+    from datetime import datetime
+    return datetime.fromtimestamp(t).strftime("%Y-%m-%d %H:%M") if t else ""
+
+
+def timeline(root):
+    """Where a project stands, with the date of each step, and the steps done out of order: an EcoTaxa zip older than
+    its feature file, the metadata or the raw data check; a spreadsheet changed after the metadata were saved; bins
+    added after a step. For the Current status page and project_status.py. Reads the folder listings and two CSVs."""
+    bins = complete_bins(root)
+    meta_dir = os.path.join(root, "metadata")
+    feats = _mtimes(os.path.join(root, FEATURES_DIR, "features"), "_features_v4.csv")
+    zips = _mtimes(os.path.join(root, "ecotaxa_import_zip_seastar"), ".zip")
+
+    def table(name):
+        path = os.path.join(meta_dir, name)
+        if not os.path.isfile(path):
+            return None, {}
+        with open(path, newline="", encoding="utf-8") as f:
+            return os.path.getmtime(path), {r["bin"]: r for r in csv.DictReader(f)}
+
+    qc_t, qc = table(QC_CSV)
+    meta_t, meta = table("metadata_ecotaxa.csv")
+    try:
+        with open(os.path.join(meta_dir, "metadata_ecotaxa.json"), encoding="utf-8") as f:
+            sheet = json.load(f).get("source_file", "")
+    except (OSError, ValueError):
+        sheet = ""
+    sheet_t = os.path.getmtime(sheet) if sheet and os.path.isfile(sheet) else None
+
+    order = []
+    for t, done, what in ((qc_t, qc, "the raw data check: open step 2 again"),
+                          (meta_t, meta, "the metadata were saved: save step 4 again")):
+        added = [b for b in bins if b not in done]
+        if t and added:
+            order.append(f"{len(added)} bin(s) added after {what}: " + _some(added))
+    if sheet_t and meta_t and sheet_t > meta_t:
+        order.append(f"The spreadsheet {os.path.basename(sheet)} was changed ({_when(sheet_t)}) after the metadata "
+                     f"were saved ({_when(meta_t)}): save step 4 again, then make the EcoTaxa tables again.")
+    made = [b for b in bins if b in zips]
+    for what, t_of in (("its feature file", feats.get), ("the metadata", lambda b: meta_t),
+                       ("the raw data check", lambda b: qc_t)):
+        old = [b for b in made if t_of(b) and zips[b] < t_of(b)]
+        if old:
+            order.append(f"{len(old)} EcoTaxa zip(s) older than {what}: make them again (step 5, chosen bins): "
+                         + _some(old))
+
+    def span(times):
+        times = [t for t in times if t]
+        return f"{_when(min(times))} → {_when(max(times))}" if times else ""
+    flagged = [b for b in bins if b not in meta or meta[b].get("sample_metadata_flag", "1") != "1"] if meta_t else []
+    report = last_report(root, "metadata_check")
+    return {"project": os.path.basename(os.path.normpath(root)), "bins": len(bins),
+            "days": f"{bins[0][1:9]} → {bins[-1][1:9]}" if bins else "",
+            "raw_check": _when(qc_t), "bad_bins": sum(1 for b in bins if qc.get(b, {}).get("sample_qc_flag") == "4"),
+            "features": sum(1 for b in bins if b in feats), "features_made": span(feats.get(b) for b in bins),
+            "metadata": _when(meta_t), "metadata_flagged": len(flagged),
+            "metadata_check": report[1] if report else "", "zips": len(made), "zips_made": span(zips[b] for b in made),
+            "order": order}
 
 
 def select_bins(root, names):

@@ -136,7 +136,33 @@ def test_warnings():
         assert not any("bins check" in x for x in project.warnings(root, "ecotaxa"))
 
 
+def test_timeline():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = project.create_project(tmp, "ifcb_sn225_ce26008_ar7e")
+        bins = ["D20260802T010000_IFCB225", "D20260802T020000_IFCB225"]
+        os.makedirs(os.path.join(root, "raw", "D20260802"))
+        for b in bins:
+            for ext in (".hdr", ".adc", ".roi"):
+                open(os.path.join(root, "raw", "D20260802", b + ext), "w").close()
+            feat = project.feature_file(os.path.join(root, project.FEATURES_DIR), b)
+            os.makedirs(os.path.dirname(feat), exist_ok=True)
+            open(feat, "w").close()
+            os.utime(feat, (1e9, 1e9))
+            open(os.path.join(root, "ecotaxa_import_zip_seastar", f"AR7E_{b}.zip"), "w").close()
+        assert project.timeline(root)["order"] == []
+        with open(os.path.join(root, "metadata", "metadata_ecotaxa.csv"), "w") as f:
+            f.write(f"bin,sample_metadata_flag\n{bins[0]},9\n")
+        os.utime(os.path.join(root, "metadata", "metadata_ecotaxa.csv"), (2e9, 2e9))
+        t = project.timeline(root)  # metadata saved after the zips, and without the second bin
+        assert (t["bins"], t["features"], t["zips"], t["metadata_flagged"]) == (2, 2, 2, 2), t
+        assert len(t["order"]) == 2 and "older than the metadata" in t["order"][1], t["order"]
+        os.utime(feat, (3e9, 3e9))  # second bin re-extracted after its zip
+        assert any("older than its feature file: make them again (step 5, chosen bins): " + bins[1] in x
+                   for x in project.timeline(root)["order"])
+
+
 if __name__ == "__main__":
     test_create_and_scan()
     test_warnings()
+    test_timeline()
     print("ok")

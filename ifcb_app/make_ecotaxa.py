@@ -64,6 +64,22 @@ def one_row_csv(path, folder, name, bin_name, key="bin"):
     return out
 
 
+def metadata_csv(root, folder, bin_name):
+    """The metadata row of this bin; a bin added to raw/ after step 4 gets one from the saved choices (date, time and
+    the values 'If empty', sample_metadata_flag 9), so that it still gets its EcoTaxa table."""
+    path = one_row_csv(os.path.join(root, "metadata", metadata.OUTPUT_CSV), folder, "metadata.csv", bin_name)
+    choices = metadata.read_choices(os.path.join(root, "metadata"))
+    if path or not choices.get("mapping"):
+        return path
+    columns, out, _ = metadata.build([], choices.get("bin_column", ""), choices["mapping"], [bin_name])
+    path = os.path.join(folder, "metadata.csv")
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, list(columns))
+        w.writeheader()
+        w.writerows(out)
+    return path
+
+
 def make_one(root, bin_name, raw_path, args, bindcols, stats=None):
     features_dir = os.path.join(root, project.FEATURES_DIR)
     problem = project.feature_file_problem(root, bin_name, stats)
@@ -74,7 +90,7 @@ def make_one(root, bin_name, raw_path, args, bindcols, stats=None):
         new = os.path.join(tmp, os.path.basename(out))  # replaces `out` only once complete: a failed redo keeps the old zip
         inputs = [raw_path + ext for ext in (".hdr", ".adc", ".roi")]
         inputs.append(project.feature_file(features_dir, bin_name))
-        for p in (one_row_csv(os.path.join(root, "metadata", metadata.OUTPUT_CSV), tmp, "metadata.csv", bin_name),
+        for p in (metadata_csv(root, tmp, bin_name),
                   one_row_csv(os.path.join(root, "metadata", project.QC_CSV), tmp, "qc.csv", bin_name),
                   one_row_csv(os.path.join(features_dir, project.VERSIONS_CSV), tmp, "versions.csv", bin_name)):
             if p:
