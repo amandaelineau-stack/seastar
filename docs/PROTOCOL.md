@@ -51,7 +51,8 @@ scripts use the same code and write the same files, so a project can be started 
 On the command line nobody looks at the column choices of step 4 before they are used: the script prints them, so
 read them, and read the checks it prints before step 5.
 
-In the app, the menu on the left has three groups: **Process** (steps 1 to 5 and Compare), **EcoTaxa API** and
+In the app, the menu on the left has four groups: **Current status** (where one or several projects stand, with
+the date of each step and the steps done out of order), **Process** (steps 1 to 5 and Compare), **EcoTaxa API** and
 **BODC** (to come). The icon of each step tells where it stands: ✅ done, ⚠️ something to look at, ☐ to do, ⏳ running.
 
 ---
@@ -189,12 +190,17 @@ other pages; each page shows it at the top, with a **Rescan** button.
    with the bin name; the app finds that column.
 2. In the table, for each EcoTaxa field, choose **From spreadsheet column**, and if needed a value **If empty**
    (5 m for the depth of the underway intake). The app proposes columns whose names look like the field.
-3. Read the **points to check** (also in `log/metadata_check_<date>.txt` once written):
+3. Read the **points to check** (also in `log/metadata_check_<date>.txt` once written). They do not stop the EcoTaxa
+   tables: every bin gets its row, and two columns say how complete it is, `sample_metadata_flag` (1 every field
+   filled, 3 a value out of range, 9 a value missing or the bin not in the spreadsheet; IODE scale, as the QC) and
+   `sample_metadata_missing` (the empty fields, `ok` if none). The classification can start in EcoTaxa; once the
+   spreadsheet is corrected, save step 4 again and make these bins again in step 5 (*Chosen days or bins*). A bin added
+   to `raw/` after step 4 gets its date, time and values *If empty*, flagged 9.
 
 | Check | What to do |
 |---|---|
 | Bin name typo? | Correct the bin name in the spreadsheet: the app gives the bin of `raw/` it most likely is |
-| Bin without metadata | Add its row, or accept the values *If empty* |
+| Bin without metadata | Add its row, or accept the values *If empty*: its EcoTaxa table is made anyway, flagged |
 | Bin not in raw/ | A row for a bin that does not exist: remove it or find the bin |
 | Not a number / Out of range | Correct the value (ranges are in `metadata_columns.csv`) |
 | Position jump | A latitude or longitude typo, or a Niskin sample without its Niskin date and time |
@@ -314,7 +320,10 @@ python create_project.py Y:\ --serial 225 --cruise-id jc278 --name pap2025new
 
 ```bash
 python project_status.py Y:\ifcb_sn225_jc278_pap2025new
+python project_status.py Y:\ifcb_sn225_jc278_pap2025new Y:\ifcb_sn225_ce26008_ar7e
 ```
+
+- Then the date of each step (raw data check, features, metadata, EcoTaxa tables) and the steps done out of order: EcoTaxa zips older than their feature file, the metadata or the raw data check, a spreadsheet changed after the metadata were saved, bins added after a step (the Current status page of the app).
 
 - Writes nothing. Prints, per day, the bins in `raw/`, the complete bins (`.hdr` + `.adc` + `.roi`), the feature
   files and the EcoTaxa zips; days where they differ are marked with `<` (the table of step 1 in the app).

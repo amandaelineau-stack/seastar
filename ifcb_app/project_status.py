@@ -1,9 +1,11 @@
-"""Where a project stands (step 1 of the app) and what the app would warn about. Writes nothing.
+"""Where one or several projects stand (step 1 and the Current status page of the app), and what the app would warn
+about. Writes nothing.
 
-    python project_status.py <project folder>
+    python project_status.py <project folder> [<project folder> ...]
 
 Per day: bins in raw/, complete bins (hdr + adc + roi), feature files and EcoTaxa zips; days where they differ are
-marked with <. Then the warnings: incomplete bins, bins without features, no metadata file, points still to check,
+marked with <. Then the date of each step and the steps done out of order (e.g. EcoTaxa zips older than the
+metadata), and the warnings: incomplete bins, bins without features, no metadata file, points still to check,
 last runs that failed or stopped, WHOI version. Run it before each step.
 """
 import argparse
@@ -14,13 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import project
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("project")
-    root = os.path.abspath(parser.parse_args().project)
-    if not os.path.isdir(root):
-        sys.exit(f"No folder {root}")
-
+def show(root):
     s = project.scan_project(root)
     print(f"Project: {root}")
     if not s["name_info"]:
@@ -41,10 +37,35 @@ def main():
             total[k] += d[k]
     print(f"{'Total':10s} {total['bins']:6d} {total['complete_bins']:9d} {total['features']:9d} {total['ecotaxa_zips']:6d}")
 
+    t = project.timeline(root)
+    print("\nSteps:")
+    print(f"  Raw data check: {t['raw_check'] or 'not done'}" + (f", {t['bad_bins']} bad bin(s)" if t["bad_bins"] else ""))
+    print(f"  Features:       {t['features']} / {t['bins']} bins" + (f", made {t['features_made']}" if t["features_made"] else ""))
+    print("  Metadata:       " + (f"saved {t['metadata']}, {t['metadata_flagged']} bin(s) flagged"
+                                  + (f"; last check: {t['metadata_check']}" if t["metadata_check"] else "")
+                                  if t["metadata"] else "not saved"))
+    print(f"  EcoTaxa tables: {t['zips']} / {t['bins']} bins" + (f", made {t['zips_made']}" if t["zips_made"] else ""))
+    print("Order of the steps: " + ("ok" if not t["order"] else f"{len(t['order'])} point(s)"))
+    for line in t["order"]:
+        print(f"  - {line}")
+
     warnings = project.warnings(root, "all")
     print(f"\n{len(warnings)} warning(s)" + (":" if warnings else "."))
     for w in warnings:
         print(f"  - {w}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("projects", nargs="+", metavar="project")
+    for i, p in enumerate(parser.parse_args().projects):
+        root = os.path.abspath(p)
+        if i:
+            print("\n" + "=" * 80 + "\n")
+        if os.path.isdir(root):
+            show(root)
+        else:
+            print(f"No folder {root}")
 
 
 if __name__ == "__main__":

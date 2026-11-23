@@ -92,7 +92,7 @@ Then, for a cruise, in this order (`<project>` is the project folder, e.g. `Y:\i
 | Step | Command | Options |
 |---|---|---|
 | 1 · Create the project | `python create_project.py <parent folder> --serial 225 --cruise-id ce26008 --name ar7e` | On an existing project, adds only its missing folders. Then copy the IFCB day folders (`DYYYYMMDD`) into `raw/` |
-| Before each step | `python project_status.py <project>` | Bins, features and zips per day, and the warnings: incomplete bins, bins without features, no metadata, points to check, failed runs, WHOI version |
+| Before each step | `python project_status.py <project> [<project> …]` | Bins, features and zips per day, the date of each step (raw data check, features, metadata, EcoTaxa tables) and the steps done out of order: EcoTaxa zips older than their feature file, the metadata or the raw data check, a spreadsheet changed after the metadata were saved, bins added after a step, and the warnings: incomplete bins, bins without features, no metadata, points to check, failed runs, WHOI version |
 | 2 · Raw data check | `python make_figures.py <project>` | Before the features: failed bins and gaps in `log/bins_check_<date>.txt`, figures in `figures/`. Run it again after step 4 for the map and the environmental values |
 | 2 · Image positions | `python show_positions.py <project> [<bin or day> ...]` | ROI x against ROI y of a bin; without a bin, the bins flagged for the flow or cut images |
 | 3 · Features | `python extract_features.py <project> --workers 8` | Skips the bins already done, so it can be run again after a stop. `--bins BIN_OR_DAY …`: only those bins (or days), done again |
@@ -108,7 +108,7 @@ Every script has `--help`. The protocol gives examples and what each check means
 
 <img src="docs/ifcb_app_icon.png" alt="IFCB pipeline app icon: the IFCB instrument, an arrow, and a grid of plankton vignettes" width="128" align="right">
 
-The same five steps, one page each, in the menu on the left: group **Process** (steps 1 to 5 and Compare EcoTaxa tables), then **EcoTaxa API** and **BODC** (to come). The icon of each step tells where it stands for the project chosen: ✅ done, ⚠️ something to look at, ☐ to do, ⏳ running. **Browse…** buttons for the folders and the spreadsheet, progress bars, the figures and the images shown on the page.
+The same five steps, one page each, in the menu on the left: **Current status** (one or several projects at once: bins, raw data check, features, metadata and EcoTaxa tables with their dates, and the steps done out of order), group **Process** (steps 1 to 5 and Compare EcoTaxa tables), then **EcoTaxa API** and **BODC** (to come). The icon of each step tells where it stands for the project chosen: ✅ done, ⚠️ something to look at, ☐ to do, ⏳ running. **Browse…** buttons for the folders and the spreadsheet, progress bars, the figures and the images shown on the page.
 
 On Windows:
 
@@ -126,7 +126,8 @@ The feature extraction and the EcoTaxa tables started from the app run as their 
 | File | Role |
 |---|---|
 | `create_project.py`, `project_status.py`, `make_figures.py`, `show_positions.py`, `extract_features.py`, `show_blobs.py`, `make_metadata.py`, `make_ecotaxa.py` | The command line, one script per step (table above). The app starts `extract_features.py` and `make_ecotaxa.py` itself |
-| `app.py` | Starts the app: the menu on the left, in three groups, and the icon of each step |
+| `app.py` | Starts the app: the menu on the left, in four groups, and the icon of each step |
+| `steps/status.py` | The Current status page (`project.timeline`, also printed by `project_status.py`) |
 | `steps/step1_project.py` … `steps/step5_ecotaxa.py` | The pages of steps 1 to 5 |
 | `steps/ecotaxa_api.py`, `steps/bodc.py` | The EcoTaxa API and BODC pages (to come) |
 | `common.py` | Pieces shared by the pages of the steps: the project chosen, the background runs, where each step stands |
