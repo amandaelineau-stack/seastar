@@ -149,21 +149,24 @@ other pages; each page shows it at the top, with a **Rescan** button.
   for a reason that figure shows are coloured, and the legend names the reason** (a bin with several reasons takes
   the colour of the main one). Hover a point: *to check* lists every reason of the bin. Drag to pan, Shift + mouse
   wheel to zoom, double-click to go back.
-- Look at **Position of the images in the camera field** (ROI x against ROI y of one bin; the flagged bins first):
+- Look at **Position of the images in the camera field** (ROI x against ROI y of one bin; the bins with the most cut
+  images first):
   the images should form one compact band. Spread out or moved, the flow is bad (blocked needle, pump); orange images
   touch the left or right edge and are cut.
-- The table of step 2 has one row per bin and one column per value measured; orange cells are probably bad
-  (flag 3), red cells bad (flag 4). The flags follow the IODE scale used by BODC: 1 good, 3 probably bad, 4 bad,
-  9 missing. Bad (4): *Short run*; probably bad (3): the other checks. The number of images and the humidity are
-  given without a flag: a low count is often real (plankton is patchy and follows gradients), and the IFCB stops
-  above its humidity alarm, so an acquired bin never exceeds it. **These checks are provisional**, to be replaced by
-  the NOC IFCB QC procedure. *Why each bin is flagged* gives each reason with the values of the cruise.
+- The table of step 2 has one row per bin and one column per value measured; red cells are bad (flag 4), grey
+  cells not checked (flag 9). The flags follow the IODE scale used by BODC: 1 good, 3 probably bad, 4 bad,
+  9 missing. Only the well-established checks, none compared with the rest of the cruise (a whole cruise with a
+  problem would look good): *Incomplete run* (run time < half the expected, 1200 s per 5 mL of the `SyringeSampleVolume`
+  of the `.hdr`) and *Few images per trigger* (more than 15 % fewer images than triggers), both bad (4). The other
+  values (images, volume, humidity, stream of particles, cut images) are given without a flag; the NOC IFCB QC
+  procedure, in development, will add checks. *Gap in the sampling* is not a flag, and means nothing for discrete
+  samples (Niskin bottles analysed in batches). *Why each bin is flagged* gives each reason with its values.
 - The result is saved in `metadata/qc_bins.csv` and goes into the EcoTaxa tables as sample columns: each value
-  (`sample_qc_images`, `sample_qc_ml_analyzed`, `sample_qc_run_time_s`, `sample_qc_images_per_trigger`,
-  `sample_qc_humidity_pct`, `sample_qc_stream_y_median_px`, `sample_qc_stream_y_spread_px`,
-  `sample_qc_cut_images_pct`), with its flag (`…_flag`) except the images and the humidity, the worst flag of the
-  bin (`sample_qc_flag`), the reasons (`sample_qc_flags`, `ok` if none) and the procedure (`sample_qc_procedure`):
-  17 columns. Doubtful bins are then
+  (`sample_qc_images`, `sample_qc_ml_analyzed`, `sample_qc_syringe_volume_ml`, `sample_qc_run_time_s`,
+  `sample_qc_images_per_trigger`, `sample_qc_humidity_pct`, `sample_qc_stream_y_median_px`,
+  `sample_qc_stream_y_spread_px`, `sample_qc_cut_images_pct`), a flag (`…_flag`) for the run time and the images per
+  trigger, the worst flag of the bin (`sample_qc_flag`), the reasons (`sample_qc_flags`, `ok` if none) and the
+  procedure (`sample_qc_procedure`): 14 columns. Doubtful bins are then
   known before the classification, and can be filtered in EcoTaxa (e.g. `sample_qc_flag` = 1). A later QC procedure
   can write the same file: step 5 only reads it. EcoTaxa accepts 60 `sample_` columns: step 5 warns if a project
   could get more.
@@ -344,8 +347,8 @@ python show_positions.py Y:\ifcb_sn225_jc278_pap2025new
 python show_positions.py Y:\ifcb_sn225_jc278_pap2025new D20250810T164958_IFCB225 D20250811
 ```
 
-- ROI x against ROI y of every image of a bin, in `figures/positions_<bin>.png`. Without a bin: the bins flagged
-  *Stream shifted*, *Stream wide* or *Many cut images*.
+- ROI x against ROI y of every image of a bin, in `figures/positions_<bin>.png`. Without a bin: the 3 bins with the
+  most cut images.
 
 ### Features (step 3)
 
@@ -440,19 +443,18 @@ python -c "import ecotaxa; p='Y:/'; print(ecotaxa.compare_report({n: ecotaxa.tab
 | 4 | Bin name typo? | A digit typed wrong or two digits swapped in the spreadsheet |
 | 4 | Position jump (> 20 knots) | A lat/lon typo, or Niskin samples analysed in batches without their Niskin time |
 | 4 | Out of range | A typo (salinity 350 for 35.0), or a unit error |
-| 2 | Small volume analysed (< 50 % of the median) | A run stopped early |
-| 2 | (no check) Few images, humidity | Removed after review: a low count is often real (patchy plankton, gradients); the IFCB stops above its humidity alarm |
-| 2 | Gap in the sampling | Instrument stopped, or bins missing from `raw/` |
-| 2 | Short run (< 1000 s and < 2.5 mL) | An incomplete sample |
-| 2 | Few images per trigger (< 0.9) | Triggers without an image: images lost |
-| 2 | Stream shifted (median ROI y > 50 px, or 4 × the usual spread, from the cruise median) | Flow deviated |
-| 2 | Stream wide (ROI y 10–90 % range > 1.5 × the cruise median) | Bad flow: blocked needle, pump |
-| 2 | Many cut images (> 5 % and > 3 × the cruise median touch the left or right edge) | Flow near the edge, or long chains |
+| 2 | Incomplete run (run time < half the expected: 1200 s per 5 mL of `SyringeSampleVolume`, so 600 s for 5 mL), flag 4 | A run stopped early |
+| 2 | Few images per trigger (more than 15 % fewer images than triggers), flag 4 | Triggers without an image: images lost |
+| 2 | Gap in the sampling (not a flag; meaningless for discrete samples) | Instrument stopped, or bins missing from `raw/` |
+| 2 | ROI x against ROI y of a bin (a plot, no flag) | Spread out or moved: bad flow (blocked needle, pump); at the edge: cut images |
 | 3 | Blob not on the particle | Segmentation problem: check focus and the image |
 | Compare | Columns or types differ between cruises | Tables made with different tools or versions |
 
-The instrument checks of step 2 are provisional, to be replaced by the NOC IFCB QC procedure. They follow what IFCB
-users already look at: the RoiXY graph of the acquisition software
+Step 2 keeps only the well-established checks, none of them using the cruise as its reference (a whole cruise with a
+problem would look good): they were chosen with the NOC IFCB team on 2026-11-23. Images, volume, humidity, stream
+position and width, and cut images are given as values without a flag: the NOC IFCB QC procedure, in development
+(there is no consensus on these indicators in the IFCB community yet), will add checks, the flow and the cut images
+first. Sources of what IFCB users already look at: the RoiXY graph of the acquisition software
 IFCBacquire and its "Bad flow, ROIs appear spread out over large area" issue in the
 [IFCB field guide](https://github.com/mrun0205/IFCB_FieldGuide) (sections 6 and 8); the ROI x / ROI y plot shown by
 default for each bin by the [WHOI IFCB dashboard](https://github.com/WHOIGit/ifcbdb); the
