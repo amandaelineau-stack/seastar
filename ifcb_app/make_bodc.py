@@ -10,7 +10,7 @@ Writes in <project>/bodc/:
   (edited on the BODC page of the app) and one row per bin: date and time (from the bin name), json, latitude and
   longitude of step 4, altitude = minus the depth of step 4, UUID and SHA-256 of the json.
 Reading every .roi to hash it is the slow part: a bin whose json is newer than its three raw files is not read again,
-unless chosen with --bins. The bad bins of the raw data check (acq_qc_flag 4) are left out, unless --include-bad.
+unless chosen with --bins. The bad bins of the raw data check (sample_qc_flag 4) are left out, unless --include-bad.
 Progress: log/bodc_status.json (read by the app) and log/bodc_<date>.log.
 """
 import argparse
@@ -175,7 +175,7 @@ def main():
     parser.add_argument("--bins", nargs="+", metavar="BIN_OR_DAY",
                         help="only these bins (names, or days DYYYYMMDD) are hashed again, even if up to date")
     parser.add_argument("--include-bad", action="store_true",
-                        help="also the bad bins of the raw data check (acq_qc_flag 4), left out by default")
+                        help="also the bad bins of the raw data check (sample_qc_flag 4), left out by default")
     parser.add_argument("--workers", type=int, default=4, help="files read at a time (default 4)")
     args = parser.parse_args()
 
