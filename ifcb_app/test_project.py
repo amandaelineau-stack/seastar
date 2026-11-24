@@ -62,8 +62,8 @@ def test_create_and_scan():
         checks = {(p["check"], p["bin"]) for p in project.check_bins(cruise, t)}
         assert checks == {("Gap in the sampling", "D20260802T230000_IFCB225")}, checks
         gap_rows = {r["bin"]: r for r in project.qc_rows(cruise, project.check_bins(cruise, t))}
-        assert gap_rows["D20260802T230000_IFCB225"]["acq_qc_gap_before_h"] > 10  # value only: the bin stays good
-        assert gap_rows["D20260802T230000_IFCB225"]["acq_qc_flag"] != 4
+        assert gap_rows["D20260802T230000_IFCB225"]["sample_qc_gap_before_h"] > 10  # value only: the bin stays good
+        assert gap_rows["D20260802T230000_IFCB225"]["sample_qc_flag"] != 4
         assert [p["check"] for p in project.check_bins({"D20260802T010000_IFCB225": {  # one bin is enough
             "rois": 80, "triggers": 100, "run_time": 250, "syringe_ml": 2.5}}, t)] == ["Incomplete run",
                                                                                      "Few images per trigger"]
@@ -89,24 +89,24 @@ def test_create_and_scan():
         assert project.bad_bins(root) == bad
         assert project.skip_bad(root, sorted(cruise), False) == ([b for b in sorted(cruise) if b not in bad], bad)
         assert project.skip_bad(root, sorted(cruise), True) == (sorted(cruise), [])
-        assert rows["D20260802T060000_IFCB225"]["acq_qc_flags"] == "Incomplete run", rows
+        assert rows["D20260802T060000_IFCB225"]["sample_qc_flags"] == "Incomplete run", rows
         r6 = rows["D20260802T060000_IFCB225"]
-        assert r6["acq_qc_run_time_s_flag"] == "4" and r6["acq_qc_flag"] == "4", r6
-        assert "acq_volume_analyzed_ml_flag" not in r6 and "acq_qc_cut_images_pct_flag" not in r6
-        assert rows["D20260802T010000_IFCB225"]["acq_qc_images_per_trigger_flag"] == "4"
+        assert r6["sample_qc_run_time_s_flag"] == "4" and r6["sample_qc_flag"] == "4", r6
+        assert "sample_volume_analyzed_ml_flag" not in r6 and "sample_qc_cut_images_pct_flag" not in r6
+        assert rows["D20260802T010000_IFCB225"]["sample_qc_images_per_trigger_flag"] == "4"
         for b in ("020000", "030000", "040000", "050000", "070000"):  # humidity, stream, cut images: values only
-            assert rows[f"D20260802T{b}_IFCB225"]["acq_qc_flag"] == "1", b
+            assert rows[f"D20260802T{b}_IFCB225"]["sample_qc_flag"] == "1", b
         no_syringe = {"D20260802T010000_IFCB225": {k: v for k, v in ok.items() if k != "syringe_ml"}}
-        assert project.qc_rows(no_syringe, [])[0]["acq_qc_run_time_s_flag"] == 9
-        assert 6 <= project.count_sample_columns(root) <= project.SAMPLE_COLUMNS_MAX  # the QC is in acq_ columns now
-        assert rows["D20260802T070000_IFCB225"]["acq_qc_flags"] == "ok" and "acq_qc_images" not in rows["D20260802T070000_IFCB225"]
+        assert project.qc_rows(no_syringe, [])[0]["sample_qc_run_time_s_flag"] == 9
+        assert 6 <= project.count_sample_columns(root) <= project.SAMPLE_COLUMNS_MAX
+        assert rows["D20260802T070000_IFCB225"]["sample_qc_flags"] == "ok" and "sample_qc_images" not in rows["D20260802T070000_IFCB225"]
         binds = project.qc_bindcols(root)
-        assert "acq_qc_flags:t:acq_qc_flags" in binds and "acq_qc_run_time_s:f:acq_qc_run_time_s" in binds
-        assert len(binds) == 9 and "acq_volume_analyzed_ml:f:acq_volume_analyzed_ml" in binds and not any("cut_images" in b for b in binds), binds  # only the checks with a flag
+        assert "sample_qc_flags:t:sample_qc_flags" in binds and "sample_qc_run_time_s:f:sample_qc_run_time_s" in binds
+        assert len(binds) == 9 and "sample_volume_analyzed_ml:f:sample_volume_analyzed_ml" in binds and not any("cut_images" in b for b in binds), binds  # only the checks with a flag
         with open(qc_file, "w", encoding="utf-8") as f:  # a file of before 2026-11-24
             f.write("bin,sample_qc_flag\nD20260802T010000_IFCB225,4\n")
-        assert project.bad_bins(root) == ["D20260802T010000_IFCB225"] and project.qc_bindcols(root) == []
-        assert any("before 2026-11-24" in w for w in project.warnings(root, "ecotaxa"))
+        assert project.bad_bins(root) == ["D20260802T010000_IFCB225"]
+        assert any("older format" in w for w in project.warnings(root, "ecotaxa"))
         qc_file = project.write_qc(root, cruise, project.check_bins(cruise, t))
         assert found == {("D20260802T010000_IFCB225", "Few images per trigger"),
                          ("D20260802T060000_IFCB225", "Incomplete run")}, found
