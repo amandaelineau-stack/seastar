@@ -107,6 +107,18 @@ def colour(values):
                                        symbolSize=60) if reasons else None)
 
 
+MAP_FIGURE = "sample_qc_map.png"
+
+
+def figure_name(column, against):
+    """File name of a figure in figures/ (Amanda, 2026-11-24): sample_qc_… for the sampling metadata (columns sample_
+    and object_ of step 4), acquisition_qc_… for the values of the IFCB itself (concentration, images per trigger,
+    stream, cut images…). E.g. sample_qc_salinity_pss_time.png, acquisition_qc_rois_per_ml_time.png."""
+    if column.startswith(("sample_", "object_")):
+        return f"sample_qc_{column.removeprefix('sample_')}_{against}.png"
+    return f"acquisition_qc_{column}_{against}.png"
+
+
 def charts(df, variables, depth):
     """{file name in figures/: (title, Altair chart)}: the map, then each variable against time (and depth)."""
     import altair as alt
@@ -132,15 +144,15 @@ def charts(df, variables, depth):
     figures = {}
     if {"object_lat", "object_lon"} <= set(df.columns) and df["object_lat"].notna().any():
         pos = data([MAP], ["object_lat", "object_lon"]).dropna(subset=["object_lat", "object_lon"])
-        figures["qc_map.png"] = ("Sample positions (longitude, latitude)", alt.Chart(pos).mark_circle(size=60, opacity=0.8).encode(
+        figures[MAP_FIGURE] = ("Sample positions (longitude, latitude)", alt.Chart(pos).mark_circle(size=60, opacity=0.8).encode(
             x=alt.X("object_lon:Q", title="Longitude (degrees E)", scale=alt.Scale(zero=False, padding=12)),
             y=alt.Y("object_lat:Q", title="Latitude (degrees N)", scale=alt.Scale(zero=False, padding=12)),
             color=colour(pos["why"]), order=alt.Order("flagged:Q"), tooltip=tooltip).properties(height=450))
     for c, title, by_depth in variables:
-        figures[f"qc_{c}_time.png"] = (f"{title} against time",
+        figures[figure_name(c, "time")] = (f"{title} against time",
                                        scatter(data([c], [c]), "time:T", f"{c}:Q", "Time (UTC)", title))
         if depth and by_depth:
-            figures[f"qc_{c}_depth.png"] = (f"{title} against depth", scatter(
+            figures[figure_name(c, "depth")] = (f"{title} against depth", scatter(
                 data([c, depth], [c, depth]), f"{c}:Q", f"{depth}:Q", title, "Depth (m)", reverse_y=True))
     return figures
 
@@ -179,6 +191,8 @@ def save(folder, figures, df, force=False):
         saved = {}
     if force or saved.get("signature") != signature:
         fig_dir.mkdir(exist_ok=True)
+        for old in set(saved.get("files", [])) - set(figures):  # our own older figures, e.g. the qc_*.png names
+            (fig_dir / old).unlink(missing_ok=True)
         for name, (title, chart) in figures.items():
             chart.properties(width=700, title=f"{Path(folder).name} · {title}").save(str(fig_dir / name), scale_factor=2)
         saved = {"signature": signature, "saved": datetime.now().isoformat(timespec="seconds"), "files": sorted(figures)}

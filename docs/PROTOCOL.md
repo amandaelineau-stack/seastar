@@ -487,7 +487,7 @@ files.
 | `metadata/metadata_ecotaxa.csv` / `.json` | step 4 | metadata with the EcoTaxa names, types and choices |
 | `metadata/qc_bins.csv` | step 2 | the result of the raw data check per bin, put in the EcoTaxa tables (`acq_qc_` columns) |
 | `log/metadata_check_<date>.txt` | step 4 | the points to check, with their spreadsheet rows |
-| `figures/qc_*.png` | steps 2 and 4 | map and figures |
+| `figures/sample_qc_*.png`, `figures/acquisition_qc_*.png` | steps 2 and 4 | the sampling metadata figures (map, environmental values) and the acquisition figures (concentration, images per trigger, stream, cut images, humidity); the older `qc_*.png` are removed when they are made again |
 | `figures/blobs_<bin>_seed<n>.png` | `show_blobs.py` | images above their blobs |
 | `ecotaxa_import_zip_seastar/<NAME>_<bin>.zip` | step 5 | the files to import into EcoTaxa |
 | `log/ecotaxa_<date>.log`, `log/ecotaxa_settings.json` | step 5 | each zip done or failed, the names typed |
