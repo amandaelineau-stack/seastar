@@ -330,7 +330,7 @@ QC_COLUMNS = [("rois", "sample_qc_images", None, None),  # value only, no flag (
 # except the volume analysed: a measure, needed for concentrations.
 QC_EXPORT = (["sample_volume_analyzed_ml"] + [c for _, c, check, _ in QC_COLUMNS if check]
              + [c + "_flag" for _, c, check, _ in QC_COLUMNS if check]
-             + ["sample_qc_gap_before_h", "sample_qc_flag", "sample_qc_flags", "sample_qc_procedure"])
+             + ["sample_qc_gap_before_h", "sample_qc_flag", "sample_qc_flag_causes", "sample_qc_procedure"])
 QC_NEEDS = {"run_time": "syringe_ml"}  # the check of a value also needs this one, or its flag is 9
 QC_GOOD, QC_MISSING = 1, 9
 QC_PROCEDURE = ("IFCB app checks: incomplete run (run time < half the expected, 1200 s per 5 mL of SyringeSampleVolume), "
@@ -341,7 +341,7 @@ SAMPLE_COLUMNS_MAX = 60  # EcoTaxa accepts at most 60 sample_ columns
 
 def qc_rows(stats, problems):
     """One dict per bin: each value, its flag (<column>_flag), the worst flag of the bin (sample_qc_flag), the reasons
-    (sample_qc_flags, "ok" if none; a gap before a bin is not a problem of the bin) and the procedure."""
+    (sample_qc_flag_causes, "ok" if none; a gap before a bin is not a problem of the bin) and the procedure."""
     cut = cut_percent(stats)
     reasons = {}
     gaps = {p["bin"]: p["hours"] for p in problems if p["check"] == "Gap in the sampling"}
@@ -364,7 +364,7 @@ def qc_rows(stats, problems):
         row["sample_qc_gap_before_h"] = gaps.get(b, 0) if len(stats) >= 3 else ""
         known = [f for f in flags if f != QC_MISSING]
         row["sample_qc_flag"] = max(known) if known else QC_MISSING
-        row["sample_qc_flags"] = "; ".join(reasons.get(b, [])) or "ok"
+        row["sample_qc_flag_causes"] = "; ".join(reasons.get(b, [])) or "ok"
         row["sample_qc_procedure"] = QC_PROCEDURE
         rows.append(row)
     return rows
@@ -426,7 +426,7 @@ def qc_bindcols(root):
         return []
     with open(path, newline="", encoding="utf-8") as f:
         header = next(csv.reader(f), [])
-    return [f"{c}:{'t' if c in ('sample_qc_flags', 'sample_qc_procedure') else 'f'}:{c}" for c in header if c in QC_EXPORT]
+    return [f"{c}:{'t' if c in ('sample_qc_flag_causes', 'sample_qc_procedure') else 'f'}:{c}" for c in header if c in QC_EXPORT]
 
 
 def roi_positions(root, bin_name):

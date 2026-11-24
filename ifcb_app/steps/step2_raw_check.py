@@ -65,7 +65,7 @@ show_all = st.toggle("Show every bin", value=not bad, key=f"qc_all_{folder}")
 shown = rows if show_all else bad
 if shown:
     table = pd.DataFrame([{"Bin": r["bin"], **{LABELS[c]: r[c] for _, c, _, _ in project.QC_COLUMNS},
-                           "Flag": r["sample_qc_flag"], "Reasons": r["sample_qc_flags"]} for r in shown])
+                           "Flag": r["sample_qc_flag"], "Reasons": r["sample_qc_flag_causes"]} for r in shown])
     flags = pd.DataFrame([{LABELS[c]: r[c + "_flag"] for _, c, check, _ in project.QC_COLUMNS if check}
                           | {"Flag": r["sample_qc_flag"]} for r in shown])
     styled = table.style.apply(lambda col: [FLAG_COLOURS.get(f, "") for f in flags[col.name]]
@@ -77,7 +77,7 @@ st.caption("One row per bin, one column per value measured: **red** = bad (flag 
            "other values have no flag (the NOC IFCB QC procedure is in development). Flags of the IODE scale, "
            f"used by BODC. The checks with a flag are saved in `metadata/{project.QC_CSV}` and put in the EcoTaxa tables "
            "(step 5) as sample columns: the volume analysed, each checked value (`sample_qc_run_time_s`, `sample_qc_images_per_trigger`) "
-           "with its flag (`…_flag`), the worst flag (`sample_qc_flag`), the reasons (`sample_qc_flags`) and the procedure, "
+           "with its flag (`…_flag`), the worst flag (`sample_qc_flag`), the reasons (`sample_qc_flag_causes`) and the procedure, "
            "so that doubtful bins are known before the classification and can be filtered in EcoTaxa. The values "
            "without a flag are shown here only.")
 if bin_problems:
