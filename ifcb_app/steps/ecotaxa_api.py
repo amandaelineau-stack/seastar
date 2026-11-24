@@ -161,7 +161,8 @@ try:
                                         range=list(GROUP_COLOURS.values()) + ["#7a4fc4", "#5a6b74", "#b8326b"])),
         tooltip=["Project", "Group", alt.Tooltip("Validated:Q", format=",")]
     ).properties(height=max(120, 36 * n_shown)), width="stretch")
-    table = groups.pivot_table(index="Project", columns="Group", values="Validated", aggfunc="sum", fill_value=0) \n        .reindex(sorted(set(titles.values())), fill_value=0)  # the projects without validated objects too
+    table = groups.pivot_table(index="Project", columns="Group", values="Validated", aggfunc="sum", fill_value=0)
+    table = table.reindex(sorted(set(titles.values())), fill_value=0)  # the projects without validated objects too
     table["% living"] = (100 * (table["living"] if "living" in table else 0) / table.sum(axis=1).where(lambda n: n > 0)).round(1)
     st.dataframe(table.reset_index(), width="stretch", hide_index=True)
     st.caption("Group = the root of the EcoTaxa taxonomy of each validated category: living (green), not-living (grey), "
