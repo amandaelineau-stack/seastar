@@ -49,7 +49,10 @@ if c2.button("Log out", width="stretch", help="Delete the token of this computer
 
 cached = st.cache_data(ttl=600, show_spinner="Asking EcoTaxa…")
 # Full project and taxon names on the y axis: by default Altair cuts them at 200 px ("IFCB PAP2025 …")
-LABELS = alt.Axis(labelLimit=0, labelFontSize=12, labelPadding=6)
+LABELS = alt.Axis(labelLimit=0, labelFontSize=12, labelPadding=6, labelOverlap=False)
+# The colours of EcoTaxa: validated green, predicted blue, dubious orange
+STATUS_COLOURS = {"Validated": "#3c9a4a", "Dubious": "#f0a030", "Predicted": "#2a78d6", "Not classified": "#cfcfcf"}
+GROUP_COLOURS = {"living": "#3c9a4a", "not-living": "#9e9e9e", "temporary": "#e6c229"}
 try:
     # ---------------------------------------------------------------- 1. the projects
     st.subheader("1 · IFCB projects")
@@ -100,6 +103,8 @@ try:
         st.stop()
     titles = {p: label.get(p, titles[p]) for p in chosen}  # below: one bar or column per project, or per merged project
     n_shown = len(set(titles.values()))
+    # Every project chosen on the y axis, also those without any object of a kind yet
+    every = alt.Y("Project:N", title=None, axis=LABELS, scale=alt.Scale(domain=sorted(set(titles.values()))))
 
     # ---------------------------------------------------------------- 2. classification progress
     st.subheader("2 · Classification progress")
@@ -109,10 +114,10 @@ try:
                          for p, s in status.items() for k, v in s.items()]) \
         .groupby(["Project", "Status", "rank"], as_index=False)["Objects"].sum()  # the parts of a merged project add up
     st.altair_chart(alt.Chart(prog).mark_bar().encode(
-        y=alt.Y("Project:N", title=None, axis=LABELS), x=alt.X("Objects:Q", stack="normalize", title="Share of the objects",
+        y=every, x=alt.X("Objects:Q", stack="normalize", title="Share of the objects",
                                                    axis=alt.Axis(format="%")),
         color=alt.Color("Status:N", sort=order, legend=alt.Legend(orient="top", title=None),
-                        scale=alt.Scale(domain=order, range=["#2a78d6", "#eb6834", "#9fb6c9", "#d9d9d9"])),
+                        scale=alt.Scale(domain=order, range=[STATUS_COLOURS[s] for s in order])),
         order=alt.Order("rank:Q"), tooltip=["Project", "Status", alt.Tooltip("Objects:Q", format=",")]
     ).properties(height=max(120, 36 * n_shown)), width="stretch")
 
@@ -132,7 +137,7 @@ try:
         .sort_values("nb_validated", ascending=False).rename(columns={"nb_validated": "Validated"})
     top = st.slider("Taxa shown", 5, min(60, len(per_taxon)), min(20, len(per_taxon)), key="eco_top") \
         if len(per_taxon) > 5 else len(per_taxon)
-    st.altair_chart(alt.Chart(per_taxon.head(top)).mark_bar(color="#2a78d6").encode(
+    st.altair_chart(alt.Chart(per_taxon.head(top)).mark_bar(color=STATUS_COLOURS["Validated"]).encode(
         y=alt.Y("Taxon:N", sort="-x", title=None, axis=LABELS), x=alt.X("Validated:Q", title="Validated objects"),
         tooltip=["Taxon", "Lineage", alt.Tooltip("Validated:Q", format=",")]).properties(height=max(150, 22 * top)),
         width="stretch")
@@ -145,19 +150,22 @@ try:
         st.download_button("Download (.csv)", by_project.to_csv(index=False), file_name="ecotaxa_validated_per_taxon.csv")
 
     # ---------------------------------------------------------------- 4. living and not living
-    st.subheader("4 · Living and not living (validated objects)")
+    st.subheader("4 · Living, not living and temporary (validated objects)")
     groups = valid.groupby(["Project", "Group"], as_index=False)["nb_validated"].sum() \
         .rename(columns={"nb_validated": "Validated"})
     st.altair_chart(alt.Chart(groups).mark_bar().encode(
-        y=alt.Y("Project:N", title=None, axis=LABELS), x=alt.X("Validated:Q", stack="normalize", title="Share of the validated objects",
+        y=every, x=alt.X("Validated:Q", stack="normalize", title="Share of the validated objects",
                                                    axis=alt.Axis(format="%")),
-        color=alt.Color("Group:N", title=None, legend=alt.Legend(orient="top")),
+        color=alt.Color("Group:N", title=None, legend=alt.Legend(orient="top"),
+                        scale=alt.Scale(domain=list(GROUP_COLOURS) + sorted(set(groups["Group"]) - set(GROUP_COLOURS)),
+                                        range=list(GROUP_COLOURS.values()) + ["#7a4fc4", "#5a6b74", "#b8326b"])),
         tooltip=["Project", "Group", alt.Tooltip("Validated:Q", format=",")]
     ).properties(height=max(120, 36 * n_shown)), width="stretch")
-    table = groups.pivot_table(index="Project", columns="Group", values="Validated", aggfunc="sum", fill_value=0)
-    table["% living"] = (100 * (table["living"] if "living" in table else 0) / table.sum(axis=1)).round(1)
+    table = groups.pivot_table(index="Project", columns="Group", values="Validated", aggfunc="sum", fill_value=0) \n        .reindex(sorted(set(titles.values())), fill_value=0)  # the projects without validated objects too
+    table["% living"] = (100 * (table["living"] if "living" in table else 0) / table.sum(axis=1).where(lambda n: n > 0)).round(1)
     st.dataframe(table.reset_index(), width="stretch", hide_index=True)
-    st.caption("Group = the root of the EcoTaxa taxonomy of each validated category (living, not-living…). "
+    st.caption("Group = the root of the EcoTaxa taxonomy of each validated category: living (green), not-living (grey), "
+               "temporary (yellow). "
                "Concentrations (objects per mL) per sample will use `sample_qc_ml_analyzed` of the new tables.")
 except api.NotLoggedIn:
     api.logout()
