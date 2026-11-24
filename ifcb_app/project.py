@@ -306,6 +306,7 @@ def check_bins(stats, bin_time):
     for ((t1, b1), (t2, b2)), s in zip(zip(times, times[1:]), steps):
         if s > gap:
             add("Gap in the sampling", b2, f"{s / 3600:.1f} h without a bin since {b1}")
+            problems[-1]["hours"] = round(s / 3600, 1)  # for acq_qc_gap_before_h
     return problems
 
 
@@ -315,15 +316,18 @@ def check_bins(stats, bin_time):
 QC_CSV = "qc_bins.csv"
 # (stat, EcoTaxa column, check that flags it or None for a value without flag, flag when it does). IODE scale (BODC):
 # 1 good, 3 probably bad (doubtful), 4 bad (failed), 9 missing value.
-QC_COLUMNS = [("rois", "sample_qc_images", None, None),  # value only, no flag (see BIN_CHECKS)
-              ("ml_analyzed", "sample_qc_ml_analyzed", None, None),
-              ("syringe_ml", "sample_qc_syringe_volume_ml", None, None),
-              ("run_time", "sample_qc_run_time_s", "Incomplete run", 4),
-              ("images_per_trigger", "sample_qc_images_per_trigger", "Few images per trigger", 4),
-              ("humidity", "sample_qc_humidity_pct", None, None),
-              ("stream_y_median", "sample_qc_stream_y_median_px", None, None),
-              ("stream_y_spread", "sample_qc_stream_y_spread_px", None, None),
-              ("cut_percent", "sample_qc_cut_images_pct", None, None)]
+QC_COLUMNS = [("rois", "acq_qc_images", None, None),  # value only, no flag (see BIN_CHECKS)
+              ("ml_analyzed", "acq_qc_ml_analyzed", None, None),
+              ("syringe_ml", "acq_qc_syringe_volume_ml", None, None),
+              ("run_time", "acq_qc_run_time_s", "Incomplete run", 4),
+              ("images_per_trigger", "acq_qc_images_per_trigger", "Few images per trigger", 4),
+              ("humidity", "acq_qc_humidity_pct", None, None),
+              ("stream_y_median", "acq_qc_stream_y_median_px", None, None),
+              ("stream_y_spread", "acq_qc_stream_y_spread_px", None, None),
+              ("cut_percent", "acq_qc_cut_images_pct", None, None)]
+# Only the checks with a flag go to EcoTaxa (Amanda, 2026-11-24): as acq_ columns, they are about the acquisition.
+# The other values are shown in step 2 only.
+QC_EXPORT = [c for _, c, check, _ in QC_COLUMNS if check] + [c + "_flag" for _, c, check, _ in QC_COLUMNS if check]     + ["acq_qc_gap_before_h", "acq_qc_flag", "acq_qc_flags", "acq_qc_procedure"]
 QC_NEEDS = {"run_time": "syringe_ml"}  # the check of a value also needs this one, or its flag is 9
 QC_GOOD, QC_MISSING = 1, 9
 QC_PROCEDURE = ("IFCB app checks: incomplete run (run time < half the expected, 1200 s per 5 mL of SyringeSampleVolume), "
@@ -333,10 +337,11 @@ SAMPLE_COLUMNS_MAX = 60  # EcoTaxa accepts at most 60 sample_ columns
 
 
 def qc_rows(stats, problems):
-    """One dict per bin: each value, its flag (<column>_flag), the worst flag of the bin (sample_qc_flag), the reasons
-    (sample_qc_flags, "ok" if none; a gap before a bin is not a problem of the bin) and the procedure."""
+    """One dict per bin: each value, its flag (<column>_flag), the worst flag of the bin (acq_qc_flag), the reasons
+    (acq_qc_flags, "ok" if none; a gap before a bin is not a problem of the bin) and the procedure."""
     cut = cut_percent(stats)
     reasons = {}
+    gaps = {p["bin"]: p["hours"] for p in problems if p["check"] == "Gap in the sampling"}
     for p in problems:
         if p["bin"] and p["check"] != "Gap in the sampling":
             reasons.setdefault(p["bin"], []).append(p["check"])
@@ -352,22 +357,29 @@ def qc_rows(stats, problems):
                 missing = missing or need is None or need != need
                 row[column + "_flag"] = QC_MISSING if missing else bad if check in reasons.get(b, []) else QC_GOOD
                 flags.append(row[column + "_flag"])
+        # hours without a bin before this one (gap check), 0 if none, empty if not checked (< 3 bins); no flag
+        row["acq_qc_gap_before_h"] = gaps.get(b, 0) if len(stats) >= 3 else ""
         known = [f for f in flags if f != QC_MISSING]
-        row["sample_qc_flag"] = max(known) if known else QC_MISSING
-        row["sample_qc_flags"] = "; ".join(reasons.get(b, [])) or "ok"
-        row["sample_qc_procedure"] = QC_PROCEDURE
+        row["acq_qc_flag"] = max(known) if known else QC_MISSING
+        row["acq_qc_flags"] = "; ".join(reasons.get(b, [])) or "ok"
+        row["acq_qc_procedure"] = QC_PROCEDURE
         rows.append(row)
     return rows
 
 
+def qc_flag(row):
+    """The worst flag of a row of qc_bins.csv, also in a file written before 2026-11-24 (sample_qc_flag)."""
+    return row.get("acq_qc_flag") or row.get("sample_qc_flag")
+
+
 def bad_bins(root):
-    """Bins flagged bad (sample_qc_flag 4) in metadata/qc_bins.csv, sorted: not processed in steps 3 and 5 unless
+    """Bins flagged bad (acq_qc_flag 4) in metadata/qc_bins.csv, sorted: not processed in steps 3 and 5 unless
     asked (--include-bad, or the box of the app). [] before the raw data check."""
     path = os.path.join(root, "metadata", QC_CSV)
     if not os.path.isfile(path):
         return []
     with open(path, newline="", encoding="utf-8") as f:
-        return sorted(r["bin"] for r in csv.DictReader(f) if r.get("sample_qc_flag") == str(4))
+        return sorted(r["bin"] for r in csv.DictReader(f) if qc_flag(r) == str(4))
 
 
 def skip_bad(root, bins, include_bad):
@@ -377,8 +389,8 @@ def skip_bad(root, bins, include_bad):
 
 
 def write_qc(root, stats, problems):
-    """metadata/qc_bins.csv (qc_rows of every bin): put in the EcoTaxa tables as sample columns. Returns its path."""
-    rows = qc_rows(stats, problems)
+    """metadata/qc_bins.csv (the QC_EXPORT columns of qc_rows): put in the EcoTaxa tables as acq_ columns. Returns its path."""
+    rows = [{k: r[k] for k in ["bin"] + QC_EXPORT} for r in qc_rows(stats, problems)]
     path = os.path.join(root, "metadata", QC_CSV)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as f:
@@ -411,7 +423,8 @@ def qc_bindcols(root):
         return []
     with open(path, newline="", encoding="utf-8") as f:
         header = next(csv.reader(f), [])
-    return [f"{c}:{'t' if c in ('sample_qc_flags', 'sample_qc_procedure') else 'f'}:{c}" for c in header if c != "bin"]
+    # an older file (sample_qc_ columns) binds nothing: project.warnings asks to run step 2 again
+    return [f"{c}:{'t' if c in ('acq_qc_flags', 'acq_qc_procedure') else 'f'}:{c}" for c in header if c in QC_EXPORT]
 
 
 def roi_positions(root, bin_name):
@@ -582,7 +595,10 @@ def warnings(root, step):
                            "bins again.")
         if not os.path.isfile(os.path.join(root, "metadata", QC_CSV)):
             out.append("No result of the raw data check yet (step 2, make_figures.py): the zips would have no "
-                       "sample_qc_ columns.")
+                       "acq_qc_ columns.")
+        elif not qc_bindcols(root):
+            out.append("The result of the raw data check was saved before 2026-11-24 (sample_qc_ columns): open step 2 "
+                       "again (or run make_figures.py) to write the acq_qc_ columns, or the zips will have none.")
         n = count_sample_columns(root)
         if n > SAMPLE_COLUMNS_MAX:
             out.append(f"The EcoTaxa tables would have up to {n} sample_ columns, EcoTaxa accepts {SAMPLE_COLUMNS_MAX}: "
@@ -665,12 +681,12 @@ def timeline(root):
         times = [t for t in times if t]
         return f"{_when(min(times))} → {_when(max(times))}" if times else ""
     flagged = [b for b in bins if b not in meta or meta[b].get("sample_metadata_flag", "1") != "1"] if meta_t else []
-    bad = {b for b in bins if qc.get(b, {}).get("sample_qc_flag") == "4"}
+    bad = {b for b in bins if qc_flag(qc.get(b, {})) == "4"}
     good = [b for b in bins if b not in bad]
     report = last_report(root, "metadata_check")
     return {"project": os.path.basename(os.path.normpath(root)), "bins": len(bins),
             "days": f"{bins[0][1:9]} → {bins[-1][1:9]}" if bins else "",
-            "raw_check": _when(qc_t), "bad_bins": sum(1 for b in bins if qc.get(b, {}).get("sample_qc_flag") == "4"),
+            "raw_check": _when(qc_t), "bad_bins": sum(1 for b in bins if qc_flag(qc.get(b, {})) == "4"),
             "good_bins": len(good), "features": sum(1 for b in good if b in feats),
             "bad_features": sum(1 for b in bad if b in feats), "features_made": span(feats.get(b) for b in bins),
             "metadata": _when(meta_t), "metadata_flagged": len(flagged),
