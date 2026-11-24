@@ -108,7 +108,7 @@ Every script has `--help`. The protocol gives examples and what each check means
 
 <img src="docs/ifcb_app_icon.png" alt="IFCB pipeline app icon: the IFCB instrument, an arrow, and a grid of plankton vignettes" width="128" align="right">
 
-The same five steps, one page each, in the menu on the left: **Current status** (one or several projects at once: bins, raw data check, features, metadata and EcoTaxa tables with their dates, and the steps done out of order), group **Process** (steps 1 to 5 and Compare EcoTaxa tables), then **EcoTaxa API** and **BODC** (to come). The icon of each step tells where it stands for the project chosen: ✅ done, ⚠️ something to look at, ☐ to do, ⏳ running. **Browse…** buttons for the folders and the spreadsheet, progress bars, the figures and the images shown on the page.
+The same five steps, one page each, in the menu on the left: **Current status** (one or several projects at once: bins, raw data check, features, metadata and EcoTaxa tables with their dates, and the steps done out of order), group **Process** (steps 1 to 5 and Compare EcoTaxa tables), then **EcoTaxa statistics** (live and read only, with each person's own EcoTaxa account: classification progress of the IFCB projects, validated objects per taxon, living and not living) and **BODC** (to come). The icon of each step tells where it stands for the project chosen: ✅ done, ⚠️ something to look at, ☐ to do, ⏳ running. **Browse…** buttons for the folders and the spreadsheet, progress bars, the figures and the images shown on the page.
 
 On Windows:
 
@@ -129,7 +129,8 @@ The feature extraction and the EcoTaxa tables started from the app run as their 
 | `app.py` | Starts the app: the menu on the left, in four groups, and the icon of each step |
 | `steps/status.py` | The Current status page (`project.timeline`, also printed by `project_status.py`) |
 | `steps/step1_project.py` … `steps/step5_ecotaxa.py` | The pages of steps 1 to 5 |
-| `steps/ecotaxa_api.py`, `steps/bodc.py` | The EcoTaxa API and BODC pages (to come) |
+| `ecotaxa_api.py`, `steps/ecotaxa_api.py` | EcoTaxa statistics, read only through the EcoTaxa API; the token is kept in `Documents/.R/ecotaxa/token`, as the R package ecotaxarapi does (the password is never saved) |
+| `steps/bodc.py` | The BODC page (to come) |
 | `common.py` | Pieces shared by the pages of the steps: the project chosen, the background runs, where each step stands |
 | `compare.py` | Page **Compare EcoTaxa tables**: a text report comparing the column names and types of the EcoTaxa tables of several projects, run when you click Compare |
 | `ui.py` | The folder field with **Browse…**, shared by the pages |
