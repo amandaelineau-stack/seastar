@@ -43,6 +43,7 @@ ifcb_sn<serial>_<cruise ID>_<name>/          e.g. ifcb_sn225_ce26008_ar7e
 | 3 · Features | [WHOI ifcb-features](https://github.com/WHOIGit/ifcb-features) v1.3.1 (August 2026): the 30 features of the WHOI MATLAB code and the blob masks. Runs in the background on several cores, skips the bins already done (or does again the days and bins you choose), shows the progress and the time left. The WHOI version (tag and commit) is recorded for each bin and goes to EcoTaxa as `process_feature_extractor` and `process_feature_extractor_release`. Then shows 12 images of a bin above their blob, to check the segmentation. | Done |
 | 4 · Sample metadata | Reads the spreadsheet of the samples (CSV or Excel) chosen with **Browse…**. For each EcoTaxa column of a shared list (latitude, longitude, depth, Niskin date and time, salinity, temperature, chlorophyll a, Niskin and CTD numbers, comment), you choose the spreadsheet column it comes from, or a value used when the spreadsheet has none (depth 5 m). Columns missing from the list can be added, and they stay available for the next projects, so every cruise gets the same column names. Depth goes to `sample_depth_*` and `object_depth_*`; dates and times are always text. Lists what to correct in the spreadsheet: probable typos in bin names (with the bin of `raw/` they most likely are), bins without metadata, values that are not numbers or outside the expected range, position jumps no ship could make, Niskin times after the IFCB analysis. **Save the metadata for the EcoTaxa tables** writes `metadata/metadata_ecotaxa.csv` and `log/metadata_check_<date>.txt`. Then the map and every environmental value against time and depth. | Done |
 | 5 · EcoTaxa tables | First what is still to check (warnings and flagged bins of steps 2 and 4). Then one zip per bin (`<cruise name>_<bin>.zip`, e.g. `pap2025new_D20250810T164958_IFCB225.zip`), made by `seastar ifcb_to_ecotaxa` in the background with the images, the features, the metadata of step 4 and the feature extractor version. Operator, checker, project, ship and cruise are typed once and remembered. A box, checked by default, adds the blob of each image as a second image of the object (`img_rank` 1). Bins that already have their zip are skipped, or you choose days and bins to make again. Each feature file is checked first (one row per image), because SeaSTAR would make a zip without features ([issue #19](https://github.com/NOC-OI/seastar/issues/19)). Still to add: a check of the column names and types of every table before the upload. | Done |
+| BODC · iFDO submission | For the British Oceanographic Data Centre, in `bodc/`: `refs/<bin>.json` per bin (a UUID, kept when made again, and the SHA-256 of its `.adc`, `.hdr` and `.roi`) and `bodc_ifdo_metadata_<project>.xlsx`, the iFDO template filled with the header of the project (edited and saved on the page) and one row per bin: date and time, json, latitude, longitude and altitude (minus the depth) of step 4, UUID and SHA-256 of the json. After `bodc_submission_generator.py` (A. Baldwin, NOC). Runs in the background; bins whose json is newer than their raw files are not read again; bad bins left out unless asked. | Done |
 
 In every figure of steps 2 and 4, only the bins flagged for a reason that figure shows are coloured, and the legend names the reason. The figures are saved as PNG in `figures/`.
 
@@ -72,6 +73,7 @@ Then, for a cruise, in this order (`<project>` is the project folder, e.g. `Y:\i
 | 4 · Metadata: check | `python make_metadata.py <project> <spreadsheet> --check-only` | Prints the column used for each field and what to correct; writes nothing. Correct the spreadsheet and run it again |
 | 4 · Metadata: write | `python make_metadata.py <project> <spreadsheet>` | `--map FIELD=COLUMN`, `--default FIELD=VALUE`, `--add-field oxygen:sample_oxygen:f:umol/kg:0:500`, `--sheet NAME`, `--bin-column COLUMN` |
 | 5 · EcoTaxa tables | `python make_ecotaxa.py <project> --operator "Full Name" --blobs` | `--qcdby`, `--project-name`, `--ship`, `--cruise`, `--workers`; without `--blobs`, no blobs. `--bins BIN_OR_DAY …`: only those bins (or days), made again; a failure keeps the old zip `--include-bad`: also the bad bins of step 2 (left out by default). |
+| BODC iFDO submission | `python make_bodc.py <project>` | Reads the header saved on the BODC page (`bodc/bodc_header.json`; the template's values the first time). `--bins BIN_OR_DAY …`: hashed again; `--include-bad`; `--workers` (files read at a time, 4) |
 | Blobs for zips made by `seastar ifcb_to_ecotaxa` | `python ecotaxa.py --blobs <project> <zip> [<zip> ...]` | Running it twice adds nothing |
 
 Every script has `--help`. The protocol gives examples and what each check means: [docs/PROTOCOL.md](docs/PROTOCOL.md).
@@ -80,7 +82,7 @@ Every script has `--help`. The protocol gives examples and what each check means
 
 <img src="docs/ifcb_app_icon.png" alt="IFCB pipeline app icon: the IFCB instrument, an arrow, and a grid of plankton vignettes" width="128" align="right">
 
-The same five steps, one page each, in the menu on the left: **Current status** (one or several projects at once: bins, raw data check, features, metadata and EcoTaxa tables with their dates, and the steps done out of order), group **Process** (steps 1 to 5 and Compare EcoTaxa tables), then **EcoTaxa statistics** (live and read only, with each person's own EcoTaxa account: classification progress of the IFCB projects, validated objects per taxon, living and not living) and **BODC** (to come). The icon of each step tells where it stands for the project chosen: ✅ done, ⚠️ something to look at, ☐ to do, ⏳ running. **Browse…** buttons for the folders and the spreadsheet, progress bars, the figures and the images shown on the page.
+The same five steps, one page each, in the menu on the left: **Current status** (one or several projects at once: bins, raw data check, features, metadata and EcoTaxa tables with their dates, and the steps done out of order), group **Process** (steps 1 to 5 and Compare EcoTaxa tables), then **EcoTaxa statistics** (live and read only, with each person's own EcoTaxa account: classification progress of the IFCB projects, validated objects per taxon, living and not living) and **BODC · iFDO submission** (the spreadsheet and reference files for BODC). The icon of each step tells where it stands for the project chosen: ✅ done, ⚠️ something to look at, ☐ to do, ⏳ running. **Browse…** buttons for the folders and the spreadsheet, progress bars, the figures and the images shown on the page.
 
 On Windows:
 
@@ -97,12 +99,12 @@ The feature extraction and the EcoTaxa tables started from the app run as their 
 
 | File | Role |
 |---|---|
-| `create_project.py`, `project_status.py`, `make_figures.py`, `show_positions.py`, `extract_features.py`, `show_blobs.py`, `make_metadata.py`, `make_ecotaxa.py` | The command line, one script per step (table above). The app starts `extract_features.py` and `make_ecotaxa.py` itself |
+| `create_project.py`, `project_status.py`, `make_figures.py`, `show_positions.py`, `extract_features.py`, `show_blobs.py`, `make_metadata.py`, `make_ecotaxa.py`, `make_bodc.py` | The command line, one script per step (table above). The app starts `extract_features.py` and `make_ecotaxa.py` itself |
 | `app.py` | Starts the app: the menu on the left, in four groups, and the icon of each step |
 | `steps/status.py` | The Current status page (`project.timeline`, also printed by `project_status.py`) |
 | `steps/step1_project.py` … `steps/step5_ecotaxa.py` | The pages of steps 1 to 5 |
 | `ecotaxa_api.py`, `steps/ecotaxa_api.py` | EcoTaxa statistics, read only through the EcoTaxa API; the token is kept in `Documents/.R/ecotaxa/token`, as the R package ecotaxarapi does (the password is never saved) |
-| `steps/bodc.py` | The BODC page (to come) |
+| `make_bodc.py`, `steps/bodc.py`, `bodc_ifdo_template.xlsx` | BODC iFDO submission: the script, its page and the empty iFDO template (from the JC282 submission) |
 | `common.py` | Pieces shared by the pages of the steps: the project chosen, the background runs, where each step stands |
 | `compare.py` | Page **Compare EcoTaxa tables**: a text report comparing the column names and types of the EcoTaxa tables of several projects, run when you click Compare |
 | `ui.py` | The folder field with **Browse…**, shared by the pages |
@@ -112,7 +114,7 @@ The feature extraction and the EcoTaxa tables started from the app run as their 
 | `qc.py` | The quality check figures, used by the pages of steps 2 and 4 and by `make_figures.py` (no interface code) |
 | `whoi/extract_slim_features.py` | Copied unchanged from WHOI ifcb-features v1.3.1 (MIT licence, `whoi/LICENSE`): this script is not part of the pip package |
 | `ecotaxa.py` | Adds the blobs to the EcoTaxa zips made by SeaSTAR, as `img_rank` 1 rows (used by `make_ecotaxa.py --blobs`, or alone: table above) |
-| `test_project.py`, `test_metadata.py`, `test_ecotaxa.py` | Tests: `python test_project.py`, `python test_metadata.py`, `python test_ecotaxa.py` |
+| `test_project.py`, `test_metadata.py`, `test_ecotaxa.py`, `test_bodc.py` | Tests: `python test_project.py`, `python test_metadata.py`, `python test_ecotaxa.py`, `python test_bodc.py` |
 | `make_icon.py` | Draws `ifcb_app.ico` and `docs/ifcb_app_icon.png` |
 
 ---
