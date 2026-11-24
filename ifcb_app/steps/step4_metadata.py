@@ -172,21 +172,21 @@ st.caption("A point far from the others is often a typo. In each figure, only th
            "figure shows are coloured, and the legend names the reason (e.g. *Out of range* in the salinity, "
            "*Position jump* on the map). Hover a point: *to check* lists every reason of the bin. Bin-name typos and "
            "bins without metadata are in the table above only.")
-if "qc_map.png" in figures:
+if qc.MAP_FIGURE in figures:
     pos = df.assign(why=qc.why(df, qc.MAP)).dropna(subset=["object_lat", "object_lon"])
     st.map(pos.assign(color=[qc.SERIES if w == "ok" else qc.TO_CHECK for w in pos["why"]]),
            latitude="object_lat", longitude="object_lon", color="color", size=400)
     st.caption(f"{len(pos)} bin{'s' if len(pos) > 1 else ''} with a position · blue: no problem · orange: a position "
                "to check (position jump, latitude or longitude out of range), named in the figure below")
-    st.altair_chart(figures["qc_map.png"][1], width="stretch")
+    st.altair_chart(figures[qc.MAP_FIGURE][1], width="stretch")
 st.caption("One row per variable: against the time the IFCB analysed the bin (left) and against depth (right).")
 for c, title, by_depth in variables:
     if not by_depth:
         continue  # the instrument values are in step 2
     left, right = st.columns(2)
-    left.altair_chart(figures[f"qc_{c}_time.png"][1], width="stretch")
+    left.altair_chart(figures[qc.figure_name(c, "time")][1], width="stretch")
     if depth:
-        right.altair_chart(figures[f"qc_{c}_depth.png"][1], width="stretch")
+        right.altair_chart(figures[qc.figure_name(c, "depth")][1], width="stretch")
 with st.expander("Table of the values plotted"):
     st.dataframe(df, width="stretch", hide_index=True)
 try:  # every figure of steps 2 and 4 as PNG in figures/, written again only when the data change

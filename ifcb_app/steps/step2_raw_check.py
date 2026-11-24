@@ -107,7 +107,7 @@ st.caption("In each figure, only the bins flagged for a reason that figure shows
 names = [c for c, _, _ in variables]
 for i in range(0, len(names), 2):
     for col, c in zip(st.columns(2), names[i:i + 2]):
-        col.altair_chart(figures[f"qc_{c}_time.png"][1], width="stretch")
+        col.altair_chart(figures[qc.figure_name(c, "time")][1], width="stretch")
 
 st.subheader("Position of the images in the camera field")
 st.caption("ROI x against ROI y of every image of a bin, as the RoiXY graph of IFCBacquire and the plot of the IFCB "
