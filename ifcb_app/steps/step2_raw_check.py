@@ -47,7 +47,7 @@ else:
 bin_problems = project.check_bins(stats, metadata.bin_time)
 project.write_qc(str(folder), stats, bin_problems)  # for the EcoTaxa tables, step 5
 rows = project.qc_rows(stats, bin_problems)
-LABELS = {"acq_qc_images": "Images", "acq_qc_ml_analyzed": "mL analysed",
+LABELS = {"acq_qc_images": "Images", "acq_volume_analyzed_ml": "mL analysed",
           "acq_qc_syringe_volume_ml": "Syringe volume (mL)", "acq_qc_run_time_s": "Run time (s)",
           "acq_qc_images_per_trigger": "Images per trigger", "acq_qc_humidity_pct": "Humidity (%)",
           "acq_qc_stream_y_median_px": "Stream position, y (px)", "acq_qc_stream_y_spread_px": "Stream width, y (px)",

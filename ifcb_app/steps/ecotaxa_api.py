@@ -167,8 +167,7 @@ try:
     st.dataframe(table.reset_index(), width="stretch", hide_index=True)
     st.caption("Group = the root of the EcoTaxa taxonomy of each validated category: living (green; with the WoRMS "
                "taxa, whose root is “Biota”), not-living (grey), temporary (yellow). "
-               "Concentrations (objects per mL) per sample need the volume analysed of each bin in the tables "
-               "(not exported since 2026-11-24).")
+               "Concentrations (objects per mL) per sample will use `acq_volume_analyzed_ml` of the new tables.")
 except api.NotLoggedIn:
     api.logout()
     st.cache_data.clear()
