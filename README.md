@@ -60,6 +60,14 @@ cd ifcb_app
 pip install -r requirements.txt
 ```
 
+**Check the install.** Tested with Python 3.14 on Windows. This line must print `ok`:
+
+```
+python -c "import streamlit, ifcb_features, ifcbkit, seastartool; print('ok')"
+```
+
+**If a module is missing** (`No module named 'ifcb_features'`, `ifcbkit` or `seastartool`, in the app or in a script), its install failed. WHOI ifcb-features (with ifcbkit) and SeaSTAR are installed straight from GitHub, so check that `git --version` answers and that github.com can be reached from this computer, then run `pip install -r requirements.txt` again in `ifcb_app` and read its error. On Windows, use the same Python as the app (`py -m pip …`, or the conda environment `ifcb_app` if there is one).
+
 Then, for a cruise, in this order (`<project>` is the project folder, e.g. `Y:\ifcb_sn225_ce26008_ar7e`):
 
 | Step | Command | Options |
