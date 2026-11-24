@@ -8,7 +8,7 @@ e.g. D20260729) are done, even if they have a feature file: its new version repl
     whoi_v4_V131_features/blobs/<day>/<bin>_blobs_v4.zip
     whoi_v4_V131_features/feature_extractor_versions.csv  (bin, extractor, release: joined by SeaSTAR per bin)
     log/bin_stats.csv  (images and mL analysed of each bin, for the quality check figures)
-The bad bins of the raw data check (sample_qc_flag 4 in metadata/qc_bins.csv) are left out, unless --include-bad.
+The bad bins of the raw data check (acq_qc_flag 4 in metadata/qc_bins.csv) are left out, unless --include-bad.
 Progress is written to log/features_status.json (read by the app) and log/features_<date>.log.
 """
 import argparse
@@ -44,7 +44,7 @@ def main():
     parser.add_argument("--bins", nargs="+", metavar="BIN_OR_DAY",
                         help="only these bins (names, or days DYYYYMMDD), done again even if they have features")
     parser.add_argument("--include-bad", action="store_true",
-                        help="also the bad bins of the raw data check (sample_qc_flag 4), left out by default")
+                        help="also the bad bins of the raw data check (acq_qc_flag 4), left out by default")
     args = parser.parse_args()
 
     root = os.path.abspath(args.project)

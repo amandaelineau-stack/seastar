@@ -56,7 +56,7 @@ def main():
         print(f"  {p['check']}: {p['bin']} {p['detail']}")
     print(f"\n{len(saved['files'])} figures in {os.path.join(root, 'figures')}: {', '.join(saved['files'])}")
     print(f"Report: {report}")
-    print(f"QC results for the EcoTaxa tables (sample_qc_ columns): {qc_file}")
+    print(f"QC results for the EcoTaxa tables (acq_qc_ columns): {qc_file}")
 
 
 if __name__ == "__main__":

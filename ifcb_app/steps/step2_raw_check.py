@@ -47,14 +47,14 @@ else:
 bin_problems = project.check_bins(stats, metadata.bin_time)
 project.write_qc(str(folder), stats, bin_problems)  # for the EcoTaxa tables, step 5
 rows = project.qc_rows(stats, bin_problems)
-LABELS = {"sample_qc_images": "Images", "sample_qc_ml_analyzed": "mL analysed",
-          "sample_qc_syringe_volume_ml": "Syringe volume (mL)", "sample_qc_run_time_s": "Run time (s)",
-          "sample_qc_images_per_trigger": "Images per trigger", "sample_qc_humidity_pct": "Humidity (%)",
-          "sample_qc_stream_y_median_px": "Stream position, y (px)", "sample_qc_stream_y_spread_px": "Stream width, y (px)",
-          "sample_qc_cut_images_pct": "Cut images (%)"}
+LABELS = {"acq_qc_images": "Images", "acq_qc_ml_analyzed": "mL analysed",
+          "acq_qc_syringe_volume_ml": "Syringe volume (mL)", "acq_qc_run_time_s": "Run time (s)",
+          "acq_qc_images_per_trigger": "Images per trigger", "acq_qc_humidity_pct": "Humidity (%)",
+          "acq_qc_stream_y_median_px": "Stream position, y (px)", "acq_qc_stream_y_spread_px": "Stream width, y (px)",
+          "acq_qc_cut_images_pct": "Cut images (%)"}
 FLAG_COLOURS = {3: "background-color: rgba(235,104,52,.30)", 4: "background-color: rgba(200,40,40,.40)",
                 9: "background-color: rgba(120,120,120,.15)"}
-bad = [r for r in rows if r["sample_qc_flag"] in (3, 4)]
+bad = [r for r in rows if r["acq_qc_flag"] in (3, 4)]
 gaps = [p for p in bin_problems if p["check"] == "Gap in the sampling"]
 if bad:
     st.warning(f"**{len(bad)} bad bin(s)** (flag 4) out of {len(rows)}. "
@@ -65,9 +65,9 @@ show_all = st.toggle("Show every bin", value=not bad, key=f"qc_all_{folder}")
 shown = rows if show_all else bad
 if shown:
     table = pd.DataFrame([{"Bin": r["bin"], **{LABELS[c]: r[c] for _, c, _, _ in project.QC_COLUMNS},
-                           "Flag": r["sample_qc_flag"], "Reasons": r["sample_qc_flags"]} for r in shown])
+                           "Flag": r["acq_qc_flag"], "Reasons": r["acq_qc_flags"]} for r in shown])
     flags = pd.DataFrame([{LABELS[c]: r[c + "_flag"] for _, c, check, _ in project.QC_COLUMNS if check}
-                          | {"Flag": r["sample_qc_flag"]} for r in shown])
+                          | {"Flag": r["acq_qc_flag"]} for r in shown])
     styled = table.style.apply(lambda col: [FLAG_COLOURS.get(f, "") for f in flags[col.name]]
                                if col.name in flags.columns else [""] * len(col), axis=0)
     st.dataframe(styled, width="stretch", hide_index=True,
@@ -75,14 +75,15 @@ if shown:
 st.caption("One row per bin, one column per value measured: **red** = bad (flag 4), grey = not checked (flag 9); "
            "*Flag* is the worst of the bin (1 = good). Only the run time and the images per trigger are checked, the "
            "other values have no flag (the NOC IFCB QC procedure is in development). Flags of the IODE scale, "
-           f"used by BODC. Saved in `metadata/{project.QC_CSV}` and put in the EcoTaxa tables (step 5) as sample "
-           "columns: each value (`sample_qc_images`, `sample_qc_cut_images_pct`…) with its flag (`…_flag`), the worst "
-           "flag (`sample_qc_flag`), the reasons (`sample_qc_flags`) and the procedure, so that doubtful bins are known "
-           "before the classification and can be filtered in EcoTaxa.")
+           f"used by BODC. The checks with a flag are saved in `metadata/{project.QC_CSV}` and put in the EcoTaxa tables "
+           "(step 5) as acquisition columns: each checked value (`acq_qc_run_time_s`, `acq_qc_images_per_trigger`) "
+           "with its flag (`…_flag`), the worst flag (`acq_qc_flag`), the reasons (`acq_qc_flags`) and the procedure, "
+           "so that doubtful bins are known before the classification and can be filtered in EcoTaxa. The values "
+           "without a flag are shown here only.")
 if bin_problems:
     with st.expander(f"Why each bin is flagged ({len(bin_problems)} points, with the values of the cruise)"
                      + (f", and {len(gaps)} gap(s) in the sampling" if gaps else "")):
-        st.dataframe(pd.DataFrame(bin_problems).drop(columns="spreadsheet row"), width="stretch", hide_index=True,
+        st.dataframe(pd.DataFrame(bin_problems).drop(columns=["spreadsheet row", "hours"], errors="ignore"), width="stretch", hide_index=True,
                      column_config={"check": st.column_config.TextColumn("Check"), "bin": st.column_config.TextColumn("Bin"),
                                     "detail": st.column_config.TextColumn("Detail", width="large")})
 with st.expander("What each check means"):
