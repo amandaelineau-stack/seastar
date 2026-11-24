@@ -67,31 +67,52 @@ try:
     if shown.empty:
         st.warning(f"No IFCB project with “{who}” as contact or manager among the {len(projects)} this account sees.")
         st.stop()
-    st.dataframe(shown.rename(columns={"projid": "ID", "title": "Project", "contact": "Contact", "managers": "Managers",
-                                       "objects": "Objects", "pct_validated": "% validated",
-                                       "pct_classified": "% classified"}),
-                 width="stretch", hide_index=True,
-                 column_config={"% validated": st.column_config.ProgressColumn(format="%.1f %%", min_value=0, max_value=100),
-                                "% classified": st.column_config.ProgressColumn(format="%.1f %%", min_value=0, max_value=100)})
+    pct = st.column_config.ProgressColumn("% validated", format="%.1f %%", min_value=0, max_value=100)
+    split = shown[shown.duplicated("group", keep=False) & shown["part"].notna()]
+    merge = st.toggle(f"Merge the projects split in parts ({split['group'].nunique()} split, e.g. “1/4”, “part 2”)",
+                      value=True, key="eco_merge", disabled=split.empty,
+                      help="A project split in several EcoTaxa projects whose titles differ only by the part number at "
+                           "the end is counted as one, below. The table per project stays.")
+    st.markdown("**Per EcoTaxa project**")
+    st.dataframe(shown[["projid", "title", "part", "contact", "managers", "objects", "pct_validated"]].rename(
+        columns={"projid": "ID", "title": "Project", "part": "Part", "contact": "Contact", "managers": "Managers",
+                 "objects": "Objects", "pct_validated": "% validated"}),
+        width="stretch", hide_index=True, column_config={"% validated": pct, "Part": st.column_config.NumberColumn(format="%d")})
+    # The label of each project in the statistics: its group when merged (the parts add up), else its title
+    parts = set(split["projid"])
+    label = {r.projid: r.group if merge and r.projid in parts else r.title for r in shown.itertuples()}
+    if merge and not split.empty:
+        st.markdown("**Split projects, merged**")
+        merged = split.assign(validated=split["objects"] * split["pct_validated"] / 100).groupby("group", as_index=False) \
+            .agg(Parts=("projid", "count"), IDs=("projid", lambda s: ", ".join(map(str, sorted(s)))),
+                 Objects=("objects", "sum"), validated=("validated", "sum"))
+        merged["% validated"] = (100 * merged["validated"] / merged["Objects"].where(merged["Objects"] > 0)).round(1)
+        st.dataframe(merged.drop(columns="validated").rename(columns={"group": "Project"}), width="stretch",
+                     hide_index=True, column_config={"% validated": pct})
     titles = projects.set_index("projid")["title"].to_dict()
-    chosen = st.multiselect("Projects for the statistics below", shown["projid"].tolist(), default=shown["projid"].tolist(),
-                            format_func=lambda i: f"{i} · {titles[i]}", key=f"eco_ids_{who}")
+    # Text options "<id> · <title>": with the ids as numbers, the choice was lost when the page ran again
+    options = [f"{i} · {titles[i]}" for i in shown["projid"]]
+    chosen = [int(o.split(" · ")[0]) for o in st.multiselect("Projects for the statistics below", options,
+                                                              default=options, key=f"eco_ids_{who}")]
     if not chosen:
         st.stop()
+    titles = {p: label.get(p, titles[p]) for p in chosen}  # below: one bar or column per project, or per merged project
+    n_shown = len(set(titles.values()))
 
     # ---------------------------------------------------------------- 2. classification progress
     st.subheader("2 · Classification progress")
     status = cached(api.project_status)(token, tuple(chosen))
     order = list(api.STATUS.values())
     prog = pd.DataFrame([{"Project": titles[p], "Status": api.STATUS[k], "Objects": v, "rank": order.index(api.STATUS[k])}
-                         for p, s in status.items() for k, v in s.items()])
+                         for p, s in status.items() for k, v in s.items()]) \
+        .groupby(["Project", "Status", "rank"], as_index=False)["Objects"].sum()  # the parts of a merged project add up
     st.altair_chart(alt.Chart(prog).mark_bar().encode(
         y=alt.Y("Project:N", title=None), x=alt.X("Objects:Q", stack="normalize", title="Share of the objects",
                                                    axis=alt.Axis(format="%")),
         color=alt.Color("Status:N", sort=order, legend=alt.Legend(orient="top", title=None),
                         scale=alt.Scale(domain=order, range=["#2a78d6", "#eb6834", "#9fb6c9", "#d9d9d9"])),
         order=alt.Order("rank:Q"), tooltip=["Project", "Status", alt.Tooltip("Objects:Q", format=",")]
-    ).properties(height=max(120, 28 * len(chosen))), width="stretch")
+    ).properties(height=max(120, 28 * n_shown)), width="stretch")
 
     # ---------------------------------------------------------------- 3. validated objects per taxon
     st.subheader("3 · Validated objects per taxon")
@@ -114,7 +135,7 @@ try:
         tooltip=["Taxon", "Lineage", alt.Tooltip("Validated:Q", format=",")]).properties(height=max(150, 18 * top)),
         width="stretch")
     st.caption(f"{len(per_taxon)} taxa with validated objects, {int(per_taxon['Validated'].sum()):,} objects, "
-               f"in {valid['projid'].nunique()} project(s).")
+               f"in {valid['projid'].nunique()} EcoTaxa project(s).")
     by_project = valid.pivot_table(index=["Taxon", "Group", "Lineage"], columns="Project", values="nb_validated",
                                    aggfunc="sum", fill_value=0).reset_index()
     with st.expander("Table per taxon and project"):
@@ -130,7 +151,7 @@ try:
                                                    axis=alt.Axis(format="%")),
         color=alt.Color("Group:N", title=None, legend=alt.Legend(orient="top")),
         tooltip=["Project", "Group", alt.Tooltip("Validated:Q", format=",")]
-    ).properties(height=max(120, 28 * len(chosen))), width="stretch")
+    ).properties(height=max(120, 28 * n_shown)), width="stretch")
     table = groups.pivot_table(index="Project", columns="Group", values="Validated", aggfunc="sum", fill_value=0)
     table["% living"] = (100 * (table["living"] if "living" in table else 0) / table.sum(axis=1)).round(1)
     st.dataframe(table.reset_index(), width="stretch", hide_index=True)

@@ -63,7 +63,17 @@ def test_compare():
         assert "2 in every project" in text, text  # object_id, acq_status
 
 
+def test_split_title():
+    import ecotaxa_api
+    for title, expected in (("IFCB PAP2025 1/4", ("IFCB PAP2025", 1)), ("IFCB PAP2025 (2 of 4)", ("IFCB PAP2025", 2)),
+                            ("IFCB JC278 part 3", ("IFCB JC278", 3)), ("IFCB AR7E 1 sur 3", ("IFCB AR7E", 1)),
+                            ("IFCB_AR7E_p2", ("IFCB_AR7E", 2)), ("IFCB CE26008 AR7E", ("IFCB CE26008 AR7E", None)),
+                            ("IFCB 2025", ("IFCB 2025", None)), ("1/4", ("1/4", None))):
+        assert ecotaxa_api.split_title(title) == expected, (title, ecotaxa_api.split_title(title))
+
+
 if __name__ == "__main__":
     test_add_blobs()
     test_compare()
+    test_split_title()
     print("ok")

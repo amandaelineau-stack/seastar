@@ -7,6 +7,7 @@ so R and the app share it. EcoTaxa shows each account only the projects it has a
 """
 import json
 import os
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -16,6 +17,19 @@ API = "https://ecotaxa.obs-vlfr.fr/api"
 TOKEN_FILE = os.path.join(os.path.expanduser("~"), "Documents" if os.name == "nt" else "", ".R", "ecotaxa", "token")
 STATUS = {"nb_validated": "Validated", "nb_dubious": "Dubious", "nb_predicted": "Predicted",
           "nb_unclassified": "Not classified"}
+
+
+# A project split in parts in EcoTaxa: "… 1/4", "… (2 of 4)", "… part 3", "… 1 sur 4", "… _p2", at the end of the title
+PART_RE = re.compile(r"[\s_\-–(\[]*(?:(?:part|partie|p)\s*\.?\s*(\d+)(?:\s*(?:/|of|sur|on)\s*\d+)?|(\d+)\s*(?:/|of|sur|on)\s*\d+)[)\]]?\s*$",
+                     re.IGNORECASE)
+
+
+def split_title(title):
+    """(title without its part number, part number or None): "IFCB PAP2025 2/4" -> ("IFCB PAP2025", 2)."""
+    m = PART_RE.search(title)
+    if not m or not title[:m.start()].strip():
+        return title, None
+    return title[:m.start()].strip(" _-–"), int(m.group(1) or m.group(2))
 
 
 class NotLoggedIn(Exception):
@@ -66,14 +80,15 @@ def me(token):
 
 
 def projects(token, instrument="IFCB"):
-    """The projects of this instrument the account can see, as dicts: projid, title, contact, managers, objcount,
-    pctvalidated, pctclassified."""
+    """The projects of this instrument the account can see, as dicts: projid, title, contact, managers, objects,
+    pct_validated, and group = the title without its part number (split projects share it), part."""
     out = []
     for p in _call("projects/search", token, instrument_filter=instrument, window_size=10000):
-        out.append({"projid": p["projid"], "title": p["title"], "contact": (p.get("contact") or {}).get("name", ""),
+        group, part = split_title(p["title"])
+        out.append({"projid": p["projid"], "title": p["title"], "group": group, "part": part,
+                    "contact": (p.get("contact") or {}).get("name", ""),
                     "managers": ", ".join(m.get("name", "") for m in p.get("managers") or []),
-                    "objects": p.get("objcount") or 0, "pct_validated": round(p.get("pctvalidated") or 0, 1),
-                    "pct_classified": round(p.get("pctclassified") or 0, 1)})
+                    "objects": p.get("objcount") or 0, "pct_validated": round(p.get("pctvalidated") or 0, 1)})
     return out
 
 
