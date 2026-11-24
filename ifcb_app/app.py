@@ -1,5 +1,5 @@
 """IFCB -> EcoTaxa pipeline in the browser. Menu on the left, in four groups: Status (where projects stand), Process
-(steps 1 to 5 and the comparison of EcoTaxa tables), EcoTaxa API and BODC (to come).
+(steps 1 to 5 and the comparison of EcoTaxa tables), EcoTaxa API and BODC.
 
 Start it with start_ifcb_app.bat (Windows) or:  python -m streamlit run app.py
 Everything runs on this computer; no data leaves it.
@@ -31,5 +31,5 @@ st.navigation({
     "Status": [st.Page(REPO / "steps" / "status.py", title="Current status", icon="📋")],
     "Process": steps + [st.Page(REPO / "compare.py", title="Compare EcoTaxa tables", icon="🔍")],
     "EcoTaxa API": [st.Page(REPO / "steps" / "ecotaxa_api.py", title="EcoTaxa statistics", icon="🌐")],
-    "BODC": [st.Page(REPO / "steps" / "bodc.py", title="BODC tables (to come)", icon="🗂️")],
+    "BODC": [st.Page(REPO / "steps" / "bodc.py", title="iFDO submission", icon="🗂️")],
 }).run()
