@@ -88,6 +88,7 @@ def projects(token, instrument="IFCB"):
         out.append({"projid": p["projid"], "title": p["title"], "group": group, "part": part,
                     "contact": (p.get("contact") or {}).get("name", ""),
                     "managers": ", ".join(m.get("name", "") for m in p.get("managers") or []),
+                    "annotators": ", ".join(m.get("name", "") for m in p.get("annotators") or []),
                     "objects": p.get("objcount") or 0, "pct_validated": round(p.get("pctvalidated") or 0, 1)})
     return out
 

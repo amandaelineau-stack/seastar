@@ -79,9 +79,9 @@ try:
                       help="A project split in several EcoTaxa projects whose titles differ only by the part number at "
                            "the end is counted as one, below. The table per project stays.")
     st.markdown("**Per EcoTaxa project**")
-    st.dataframe(shown[["projid", "title", "part", "contact", "managers", "objects", "pct_validated"]].rename(
-        columns={"projid": "ID", "title": "Project", "part": "Part", "contact": "Contact", "managers": "Managers",
-                 "objects": "Objects", "pct_validated": "% validated"}),
+    st.dataframe(shown[["projid", "title", "part", "objects", "pct_validated", "contact", "managers", "annotators"]].rename(
+        columns={"projid": "ID", "title": "Project", "part": "Part", "objects": "Objects", "pct_validated": "% validated",
+                 "contact": "Contact", "managers": "Managers", "annotators": "Annotators"}),
         width="stretch", hide_index=True, column_config={"% validated": pct, "Part": st.column_config.NumberColumn(format="%d")})
     # The label of each project in the statistics: its group when merged (the parts add up), else its title
     parts = set(split["projid"])
