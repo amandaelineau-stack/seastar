@@ -48,6 +48,8 @@ if c2.button("Log out", width="stretch", help="Delete the token of this computer
     st.rerun()
 
 cached = st.cache_data(ttl=600, show_spinner="Asking EcoTaxa…")
+# Full project and taxon names on the y axis: by default Altair cuts them at 200 px ("IFCB PAP2025 …")
+LABELS = alt.Axis(labelLimit=0, labelFontSize=12, labelPadding=6)
 try:
     # ---------------------------------------------------------------- 1. the projects
     st.subheader("1 · IFCB projects")
@@ -107,12 +109,12 @@ try:
                          for p, s in status.items() for k, v in s.items()]) \
         .groupby(["Project", "Status", "rank"], as_index=False)["Objects"].sum()  # the parts of a merged project add up
     st.altair_chart(alt.Chart(prog).mark_bar().encode(
-        y=alt.Y("Project:N", title=None), x=alt.X("Objects:Q", stack="normalize", title="Share of the objects",
+        y=alt.Y("Project:N", title=None, axis=LABELS), x=alt.X("Objects:Q", stack="normalize", title="Share of the objects",
                                                    axis=alt.Axis(format="%")),
         color=alt.Color("Status:N", sort=order, legend=alt.Legend(orient="top", title=None),
                         scale=alt.Scale(domain=order, range=["#2a78d6", "#eb6834", "#9fb6c9", "#d9d9d9"])),
         order=alt.Order("rank:Q"), tooltip=["Project", "Status", alt.Tooltip("Objects:Q", format=",")]
-    ).properties(height=max(120, 28 * n_shown)), width="stretch")
+    ).properties(height=max(120, 36 * n_shown)), width="stretch")
 
     # ---------------------------------------------------------------- 3. validated objects per taxon
     st.subheader("3 · Validated objects per taxon")
@@ -131,8 +133,8 @@ try:
     top = st.slider("Taxa shown", 5, min(60, len(per_taxon)), min(20, len(per_taxon)), key="eco_top") \
         if len(per_taxon) > 5 else len(per_taxon)
     st.altair_chart(alt.Chart(per_taxon.head(top)).mark_bar(color="#2a78d6").encode(
-        y=alt.Y("Taxon:N", sort="-x", title=None), x=alt.X("Validated:Q", title="Validated objects"),
-        tooltip=["Taxon", "Lineage", alt.Tooltip("Validated:Q", format=",")]).properties(height=max(150, 18 * top)),
+        y=alt.Y("Taxon:N", sort="-x", title=None, axis=LABELS), x=alt.X("Validated:Q", title="Validated objects"),
+        tooltip=["Taxon", "Lineage", alt.Tooltip("Validated:Q", format=",")]).properties(height=max(150, 22 * top)),
         width="stretch")
     st.caption(f"{len(per_taxon)} taxa with validated objects, {int(per_taxon['Validated'].sum()):,} objects, "
                f"in {valid['projid'].nunique()} EcoTaxa project(s).")
@@ -147,11 +149,11 @@ try:
     groups = valid.groupby(["Project", "Group"], as_index=False)["nb_validated"].sum() \
         .rename(columns={"nb_validated": "Validated"})
     st.altair_chart(alt.Chart(groups).mark_bar().encode(
-        y=alt.Y("Project:N", title=None), x=alt.X("Validated:Q", stack="normalize", title="Share of the validated objects",
+        y=alt.Y("Project:N", title=None, axis=LABELS), x=alt.X("Validated:Q", stack="normalize", title="Share of the validated objects",
                                                    axis=alt.Axis(format="%")),
         color=alt.Color("Group:N", title=None, legend=alt.Legend(orient="top")),
         tooltip=["Project", "Group", alt.Tooltip("Validated:Q", format=",")]
-    ).properties(height=max(120, 28 * n_shown)), width="stretch")
+    ).properties(height=max(120, 36 * n_shown)), width="stretch")
     table = groups.pivot_table(index="Project", columns="Group", values="Validated", aggfunc="sum", fill_value=0)
     table["% living"] = (100 * (table["living"] if "living" in table else 0) / table.sum(axis=1)).round(1)
     st.dataframe(table.reset_index(), width="stretch", hide_index=True)
