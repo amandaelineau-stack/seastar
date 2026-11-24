@@ -89,7 +89,7 @@ def test_create_and_scan():
         assert project.bad_bins(root) == bad
         assert project.skip_bad(root, sorted(cruise), False) == ([b for b in sorted(cruise) if b not in bad], bad)
         assert project.skip_bad(root, sorted(cruise), True) == (sorted(cruise), [])
-        assert rows["D20260802T060000_IFCB225"]["sample_qc_flags"] == "Incomplete run", rows
+        assert rows["D20260802T060000_IFCB225"]["sample_qc_flag_causes"] == "Incomplete run", rows
         r6 = rows["D20260802T060000_IFCB225"]
         assert r6["sample_qc_run_time_s_flag"] == "4" and r6["sample_qc_flag"] == "4", r6
         assert "sample_volume_analyzed_ml_flag" not in r6 and "sample_qc_cut_images_pct_flag" not in r6
@@ -99,9 +99,9 @@ def test_create_and_scan():
         no_syringe = {"D20260802T010000_IFCB225": {k: v for k, v in ok.items() if k != "syringe_ml"}}
         assert project.qc_rows(no_syringe, [])[0]["sample_qc_run_time_s_flag"] == 9
         assert 6 <= project.count_sample_columns(root) <= project.SAMPLE_COLUMNS_MAX
-        assert rows["D20260802T070000_IFCB225"]["sample_qc_flags"] == "ok" and "sample_qc_images" not in rows["D20260802T070000_IFCB225"]
+        assert rows["D20260802T070000_IFCB225"]["sample_qc_flag_causes"] == "ok" and "sample_qc_images" not in rows["D20260802T070000_IFCB225"]
         binds = project.qc_bindcols(root)
-        assert "sample_qc_flags:t:sample_qc_flags" in binds and "sample_qc_run_time_s:f:sample_qc_run_time_s" in binds
+        assert "sample_qc_flag_causes:t:sample_qc_flag_causes" in binds and "sample_qc_run_time_s:f:sample_qc_run_time_s" in binds
         assert len(binds) == 9 and "sample_volume_analyzed_ml:f:sample_volume_analyzed_ml" in binds and not any("cut_images" in b for b in binds), binds  # only the checks with a flag
         with open(qc_file, "w", encoding="utf-8") as f:  # a file of before 2026-11-24
             f.write("bin,sample_qc_flag\nD20260802T010000_IFCB225,4\n")

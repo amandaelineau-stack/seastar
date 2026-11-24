@@ -167,7 +167,7 @@ other pages; each page shows it at the top, with a **Rescan** button.
   belong to the sample): the volume analysed (`sample_volume_analyzed_ml`, for concentrations), the run time
   (`sample_qc_run_time_s`) and the images per trigger (`sample_qc_images_per_trigger`) with their flags (`…_flag`), the
   hours without a bin before the bin (`sample_qc_gap_before_h`, 0 if no gap, no flag), the worst flag of the bin
-  (`sample_qc_flag`), the reasons (`sample_qc_flags`, `ok` if none) and the procedure (`sample_qc_procedure`): 9
+  (`sample_qc_flag`), the reasons (`sample_qc_flag_causes`, `ok` if none) and the procedure (`sample_qc_procedure`): 9
   columns since 2026-11-24 (14 before, with the values without a flag too, which are now shown in the app only). Doubtful bins are then
   known before the classification, and can be filtered in EcoTaxa (e.g. `sample_qc_flag` = 1). A later QC procedure
   can write the same file: step 5 only reads it. EcoTaxa accepts 60 `sample_` columns: step 5 warns if a project
