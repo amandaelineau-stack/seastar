@@ -116,8 +116,10 @@ def taxa(token, ids):
     for i in range(0, len(ids), 200):  # the ids go in the URL
         for t in _call("taxon_set/query", token, ids=",".join(map(str, ids[i:i + 200]))):
             lineage = t.get("lineage") or []
+            root = lineage[-1] if lineage else ""
+            # "Biota" = root of the WoRMS taxa, "living" = root of the older EcoTaxa tree: both are living organisms
             out[t["id"]] = {"name": t["name"], "display_name": t.get("display_name") or t["name"],
-                            "lineage": " > ".join(reversed(lineage)), "group": lineage[-1] if lineage else ""}
+                            "lineage": " > ".join(reversed(lineage)), "group": "living" if root == "Biota" else root}
     return out
 
 

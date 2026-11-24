@@ -165,8 +165,8 @@ try:
     table = table.reindex(sorted(set(titles.values())), fill_value=0)  # the projects without validated objects too
     table["% living"] = (100 * (table["living"] if "living" in table else 0) / table.sum(axis=1).where(lambda n: n > 0)).round(1)
     st.dataframe(table.reset_index(), width="stretch", hide_index=True)
-    st.caption("Group = the root of the EcoTaxa taxonomy of each validated category: living (green), not-living (grey), "
-               "temporary (yellow). "
+    st.caption("Group = the root of the EcoTaxa taxonomy of each validated category: living (green; with the WoRMS "
+               "taxa, whose root is “Biota”), not-living (grey), temporary (yellow). "
                "Concentrations (objects per mL) per sample will use `sample_qc_ml_analyzed` of the new tables.")
 except api.NotLoggedIn:
     api.logout()
