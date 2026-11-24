@@ -166,8 +166,8 @@ other pages; each page shows it at the top, with a **Rescan** button.
   columns (since 2026-11-24; before, 14 `sample_qc_` columns with the values without a flag too): the run time
   (`acq_qc_run_time_s`) and the images per trigger (`acq_qc_images_per_trigger`) with their flags (`…_flag`), the hours
   without a bin before the bin (`acq_qc_gap_before_h`, 0 if no gap, no flag), the worst flag of the bin
-  (`acq_qc_flag`), the reasons (`acq_qc_flags`, `ok` if none) and the procedure (`acq_qc_procedure`): 8 columns, with
-  the 18 `acq_` columns of SeaSTAR 26. The values without a flag are shown in the app only. Doubtful bins are then
+  (`acq_qc_flag`), the reasons (`acq_qc_flags`, `ok` if none) and the procedure (`acq_qc_procedure`): 8 columns, plus the volume analysed (`acq_volume_analyzed_ml`, for
+  concentrations): with the 18 `acq_` columns of SeaSTAR 27. The other values without a flag are shown in the app only. Doubtful bins are then
   known before the classification, and can be filtered in EcoTaxa (e.g. `acq_qc_flag` = 1). A later QC procedure
   can write the same file: step 5 only reads it. EcoTaxa accepts 60 `sample_` columns: step 5 warns if a project
   could get more.

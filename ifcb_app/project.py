@@ -317,7 +317,7 @@ QC_CSV = "qc_bins.csv"
 # (stat, EcoTaxa column, check that flags it or None for a value without flag, flag when it does). IODE scale (BODC):
 # 1 good, 3 probably bad (doubtful), 4 bad (failed), 9 missing value.
 QC_COLUMNS = [("rois", "acq_qc_images", None, None),  # value only, no flag (see BIN_CHECKS)
-              ("ml_analyzed", "acq_qc_ml_analyzed", None, None),
+              ("ml_analyzed", "acq_volume_analyzed_ml", None, None),
               ("syringe_ml", "acq_qc_syringe_volume_ml", None, None),
               ("run_time", "acq_qc_run_time_s", "Incomplete run", 4),
               ("images_per_trigger", "acq_qc_images_per_trigger", "Few images per trigger", 4),
@@ -326,8 +326,8 @@ QC_COLUMNS = [("rois", "acq_qc_images", None, None),  # value only, no flag (see
               ("stream_y_spread", "acq_qc_stream_y_spread_px", None, None),
               ("cut_percent", "acq_qc_cut_images_pct", None, None)]
 # Only the checks with a flag go to EcoTaxa (Amanda, 2026-11-24): as acq_ columns, they are about the acquisition.
-# The other values are shown in step 2 only.
-QC_EXPORT = [c for _, c, check, _ in QC_COLUMNS if check] + [c + "_flag" for _, c, check, _ in QC_COLUMNS if check]     + ["acq_qc_gap_before_h", "acq_qc_flag", "acq_qc_flags", "acq_qc_procedure"]
+# The other values are shown in step 2 only, except the volume analysed: a measure, needed for concentrations.
+QC_EXPORT = ["acq_volume_analyzed_ml"] + [c for _, c, check, _ in QC_COLUMNS if check] + [c + "_flag" for _, c, check, _ in QC_COLUMNS if check]     + ["acq_qc_gap_before_h", "acq_qc_flag", "acq_qc_flags", "acq_qc_procedure"]
 QC_NEEDS = {"run_time": "syringe_ml"}  # the check of a value also needs this one, or its flag is 9
 QC_GOOD, QC_MISSING = 1, 9
 QC_PROCEDURE = ("IFCB app checks: incomplete run (run time < half the expected, 1200 s per 5 mL of SyringeSampleVolume), "
