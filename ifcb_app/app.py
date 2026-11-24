@@ -30,6 +30,6 @@ steps = [st.Page(REPO / common.STEP_PAGES[n], title=title, default=n == 1,
 st.navigation({
     "Status": [st.Page(REPO / "steps" / "status.py", title="Current status", icon="📋")],
     "Process": steps + [st.Page(REPO / "compare.py", title="Compare EcoTaxa tables", icon="🔍")],
-    "EcoTaxa API": [st.Page(REPO / "steps" / "ecotaxa_api.py", title="EcoTaxa API (to come)", icon="🌐")],
+    "EcoTaxa API": [st.Page(REPO / "steps" / "ecotaxa_api.py", title="EcoTaxa statistics", icon="🌐")],
     "BODC": [st.Page(REPO / "steps" / "bodc.py", title="BODC tables (to come)", icon="🗂️")],
 }).run()
