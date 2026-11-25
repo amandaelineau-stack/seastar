@@ -355,6 +355,12 @@ QC_GOOD, QC_MISSING = 1, 9
 QC_PROCEDURE = ("Bin checks of the IFCB app: run time at least half the expected (1200 s per 5 mL of "
                 "SyringeSampleVolume) and at least 85 % as many images as triggers. Flag 1 = passed, 4 = failed, "
                 "9 = not checkable. Gap before the bin in hours, no flag. NOC IFCB QC procedure in development.")
+# Checks of each image (Amanda, 2026-11-25): the columns are in every EcoTaxa table, empty until the NOC IFCB QC
+# procedure sets the methods and thresholds (cut image; image outside the stream of particles). Same pattern as the
+# sample_qc_ columns: a value and its flag per check, then the worst flag, its causes and the procedure.
+OBJECT_QC_COLUMNS = {"object_qc_cut_edge": "t", "object_qc_cut_edge_flag": "f",
+                     "object_qc_stream_distance_px": "f", "object_qc_stream_distance_px_flag": "f",
+                     "object_qc_flag": "f", "object_qc_flag_causes": "t", "object_qc_procedure": "t"}
 SAMPLE_COLUMNS_MAX = 60  # EcoTaxa accepts at most 60 sample_ columns
 
 
