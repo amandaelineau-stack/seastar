@@ -334,7 +334,7 @@ QC_CSV = "qc_bins.csv"
 # (stat, EcoTaxa column, check that flags it or None for a value without flag, flag when it does). IODE scale (BODC):
 # 1 good, 3 probably bad (doubtful), 4 bad (failed), 9 missing value.
 QC_COLUMNS = [("rois", "sample_acq_qc_images", None, None),  # value only, no flag (see BIN_CHECKS)
-              ("ml_analyzed", "sample_volume_analyzed_ml", None, None),
+              ("ml_analyzed", "sample_acq_volume_analyzed_ml", None, None),
               ("syringe_ml", "sample_acq_qc_syringe_volume_ml", None, None),
               ("run_time", "sample_acq_qc_run_time_s", "Incomplete run", 4),
               ("images_per_trigger", "sample_acq_qc_images_per_trigger", "Few images per trigger", 4),
@@ -346,7 +346,7 @@ QC_COLUMNS = [("rois", "sample_acq_qc_images", None, None),  # value only, no fl
 # (the sample), and SeaSTAR makes one EcoTaxa acquisition per trigger. The other values are shown in step 2 only,
 # except the volume analysed: a measure, needed for concentrations. Names (Amanda, 2026-11-25): sample_acq_qc_ for
 # the checks of the run in the IFCB, sample_qc_ for the checks of the deployment (the sampling: gap, cruise sheet).
-QC_EXPORT = (["sample_volume_analyzed_ml"] + [c for _, c, check, _ in QC_COLUMNS if check]
+QC_EXPORT = (["sample_acq_volume_analyzed_ml"] + [c for _, c, check, _ in QC_COLUMNS if check]
              + [c + "_flag" for _, c, check, _ in QC_COLUMNS if check]
              + ["sample_qc_gap_before_h", "sample_acq_qc_flag", "sample_acq_qc_flag_causes", "sample_acq_qc_procedure"])
 QC_NEEDS = {"run_time": "syringe_ml"}  # the check of a value also needs this one, or its flag is 9

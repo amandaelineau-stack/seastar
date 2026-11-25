@@ -166,7 +166,7 @@ other pages; each page shows it at the top, with a **Rescan** button.
   columns (a bin is the EcoTaxa sample; SeaSTAR makes one EcoTaxa acquisition per trigger, so values of the whole bin
   belong to the sample). Names (since 2026-11-25): `sample_acq_qc_` for the checks of the run in the IFCB,
   `sample_qc_` for the checks of the deployment (the sampling). Columns: the volume analysed
-  (`sample_volume_analyzed_ml`, for concentrations); the run time (`sample_acq_qc_run_time_s`) and the images per
+  (`sample_acq_volume_analyzed_ml`, for concentrations); the run time (`sample_acq_qc_run_time_s`) and the images per
   trigger (`sample_acq_qc_images_per_trigger`) with their flags (`…_flag`), the worst flag of the bin
   (`sample_acq_qc_flag`), its causes (`sample_acq_qc_flag_causes`, `ok` if none) and the procedure
   (`sample_acq_qc_procedure`); the hours without a bin before the bin (`sample_qc_gap_before_h`, 0 if no gap, no

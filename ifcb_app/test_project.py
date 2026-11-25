@@ -92,7 +92,7 @@ def test_create_and_scan():
         assert rows["D20260802T060000_IFCB225"]["sample_acq_qc_flag_causes"] == "Incomplete run", rows
         r6 = rows["D20260802T060000_IFCB225"]
         assert r6["sample_acq_qc_run_time_s_flag"] == "4" and r6["sample_acq_qc_flag"] == "4", r6
-        assert "sample_volume_analyzed_ml_flag" not in r6 and "sample_acq_qc_cut_images_pct_flag" not in r6
+        assert "sample_acq_volume_analyzed_ml_flag" not in r6 and "sample_acq_qc_cut_images_pct_flag" not in r6
         assert rows["D20260802T010000_IFCB225"]["sample_acq_qc_images_per_trigger_flag"] == "4"
         for b in ("020000", "030000", "040000", "050000", "070000"):  # humidity, stream, cut images: values only
             assert rows[f"D20260802T{b}_IFCB225"]["sample_acq_qc_flag"] == "1", b
@@ -102,7 +102,7 @@ def test_create_and_scan():
         assert rows["D20260802T070000_IFCB225"]["sample_acq_qc_flag_causes"] == "ok" and "sample_acq_qc_images" not in rows["D20260802T070000_IFCB225"]
         binds = project.qc_bindcols(root)
         assert "sample_acq_qc_flag_causes:t:sample_acq_qc_flag_causes" in binds and "sample_acq_qc_run_time_s:f:sample_acq_qc_run_time_s" in binds
-        assert len(binds) == 9 and "sample_volume_analyzed_ml:f:sample_volume_analyzed_ml" in binds and not any("cut_images" in b for b in binds), binds  # only the checks with a flag
+        assert len(binds) == 9 and "sample_acq_volume_analyzed_ml:f:sample_acq_volume_analyzed_ml" in binds and not any("cut_images" in b for b in binds), binds  # only the checks with a flag
         with open(qc_file, "w", encoding="utf-8") as f:  # a file of before 2026-11-24
             f.write("bin,sample_qc_flag\nD20260802T010000_IFCB225,4\n")  # the name until 2026-11-25
         assert project.bad_bins(root) == ["D20260802T010000_IFCB225"]
