@@ -141,12 +141,14 @@ def main():
         chosen, unknown = project.select_bins(root, args.bins)
         if unknown:
             sys.exit("Not a complete bin or day of raw/: " + "; ".join(unknown))
+        # bad bins first: they have no features on purpose, so they are not reported as "no features yet"
+        chosen, bad = project.skip_bad(root, chosen, args.include_bad)
         without = set(project.bins_without_features(root))
         todo = [b for b in chosen if b not in without]
         skipped = [b for b in chosen if b in without]
     else:
         todo, _, _ = plan(root)
-    todo, bad = project.skip_bad(root, todo, args.include_bad)
+        todo, bad = project.skip_bad(root, todo, args.include_bad)
     os.makedirs(os.path.join(root, ZIP_DIR), exist_ok=True)
     raw = project.raw_bin_paths(root, todo)
     stats = project.load_stats(root)  # image counts, to check the feature files
