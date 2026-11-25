@@ -164,15 +164,17 @@ other pages; each page shows it at the top, with a **Rescan** button.
   samples (Niskin bottles analysed in batches). *Why each bin is flagged* gives each reason with its values.
 - The result of the three checks is saved in `metadata/qc_bins.csv` and goes into the EcoTaxa tables as sample
   columns (a bin is the EcoTaxa sample; SeaSTAR makes one EcoTaxa acquisition per trigger, so values of the whole bin
-  belong to the sample): the volume analysed (`sample_volume_analyzed_ml`, for concentrations), the run time
-  (`sample_qc_run_time_s`) and the images per trigger (`sample_qc_images_per_trigger`) with their flags (`…_flag`), the
-  hours without a bin before the bin (`sample_qc_gap_before_h`, 0 if no gap, no flag), the worst flag of the bin
-  (`sample_qc_flag`), the reasons (`sample_qc_flag_causes`, `ok` if none) and the procedure (`sample_qc_procedure`): 9
-  columns since 2026-11-24 (14 before, with the values without a flag too, which are now shown in the app only). Since 2026-11-25 step 5 also adds 7 empty columns for
+  belong to the sample). Names (since 2026-11-25): `sample_acq_qc_` for the checks of the run in the IFCB,
+  `sample_qc_` for the checks of the deployment (the sampling). Columns: the volume analysed
+  (`sample_volume_analyzed_ml`, for concentrations); the run time (`sample_acq_qc_run_time_s`) and the images per
+  trigger (`sample_acq_qc_images_per_trigger`) with their flags (`…_flag`), the worst flag of the bin
+  (`sample_acq_qc_flag`), its causes (`sample_acq_qc_flag_causes`, `ok` if none) and the procedure
+  (`sample_acq_qc_procedure`); the hours without a bin before the bin (`sample_qc_gap_before_h`, 0 if no gap, no
+  flag). 9 columns (14 until 2026-11-24, with the values without a flag too, which are now shown in the app only). Since 2026-11-25 step 5 also adds 7 empty columns for
   the checks of each image to come, filled once the NOC IFCB QC procedure sets them: `object_qc_cut_edge` (none, left,
   right, both) and `object_qc_stream_distance_px` (distance to the centre of the stream of the bin), each with its
   `_flag`, then `object_qc_flag`, `object_qc_flag_causes` and `object_qc_procedure`. Doubtful bins are then
-  known before the classification, and can be filtered in EcoTaxa (e.g. `sample_qc_flag` = 1). A later QC procedure
+  known before the classification, and can be filtered in EcoTaxa (e.g. `sample_acq_qc_flag` = 1). A later QC procedure
   can write the same file: step 5 only reads it. EcoTaxa accepts 60 `sample_` columns: step 5 warns if a project
   could get more.
 
@@ -351,7 +353,7 @@ python make_figures.py Y:\ifcb_sn225_jc278_pap2025new
 - Reads the `.adc` and `.hdr` of the bins not read yet (slow on Y:\; the feature extraction also reads them). Before
   the metadata, it plots the concentration and the instrument values only; run it again after step 4 for the map
   and the environmental values. Move the failed bins out of `raw/` before step 3.
-- Writes `metadata/qc_bins.csv`, the result of the checks for the EcoTaxa tables (`sample_qc_` columns, see the app
+- Writes `metadata/qc_bins.csv`, the result of the checks for the EcoTaxa tables (`sample_acq_qc_` columns, see the app
   protocol, step 2).
 - As in the app, each figure colours only the bins flagged for a reason it shows, with the reason in the legend (the
   metadata points come from the last `log/metadata_check_<date>.txt`).
@@ -372,7 +374,7 @@ python show_positions.py Y:\ifcb_sn225_jc278_pap2025new D20250810T164958_IFCB225
 python extract_features.py Y:\ifcb_sn225_jc278_pap2025new --workers 14
 ```
 
-- Skips the bins that already have a feature file; safe to run again after a stop. The bad bins of step 2 (`sample_qc_flag` 4 in `metadata/qc_bins.csv`: incomplete run, images lost) are left out, unless `--include-bad` (in the app: the box *Include the bad bins*, unchecked by default).
+- Skips the bins that already have a feature file; safe to run again after a stop. The bad bins of step 2 (`sample_acq_qc_flag` 4 in `metadata/qc_bins.csv`: incomplete run, images lost) are left out, unless `--include-bad` (in the app: the box *Include the bad bins*, unchecked by default).
 - One bin or one day at a time: `--bins D20250810T164958_IFCB225 D20250811` does only those bins (a day = all its
   bins), even if they already have features: the new files replace the old ones. A name that is not in `raw/` stops
   the script before anything is done, with the closest bin names.
@@ -426,7 +428,7 @@ python make_ecotaxa.py Y:\ifcb_sn225_jc278_pap2025new ^
 (`^` continues the line in the Windows command prompt; use `\` in bash.)
 
 - Without `--blobs`, the zips have no blobs.
-- Skips the bins that already have their zip; a failed bin leaves no zip. The bad bins of step 2 (`sample_qc_flag` 4 in `metadata/qc_bins.csv`: incomplete run, images lost) are left out, unless `--include-bad` (in the app: the box *Include the bad bins*, unchecked by default). Each feature file is checked first (a
+- Skips the bins that already have their zip; a failed bin leaves no zip. The bad bins of step 2 (`sample_acq_qc_flag` 4 in `metadata/qc_bins.csv`: incomplete run, images lost) are left out, unless `--include-bad` (in the app: the box *Include the bad bins*, unchecked by default). Each feature file is checked first (a
   `roi_number` column, one row per image): a bin that fails is listed, with no zip.
 - One bin or one day at a time: `--bins …`, as for the features. The bins are made again even if they have their
   zip; the new zip replaces the old one only once it is complete, so a failure keeps the old zip. For example, after
@@ -489,7 +491,7 @@ files.
 | `log/features_<date>.log`, `log/features_status.json` | step 3 | each bin done or failed |
 | `log/bin_stats.csv` | step 2 (or 3) | images, mL analysed and concentration per bin |
 | `metadata/metadata_ecotaxa.csv` / `.json` | step 4 | metadata with the EcoTaxa names, types and choices |
-| `metadata/qc_bins.csv` | step 2 | the result of the raw data check per bin, put in the EcoTaxa tables (`sample_qc_` columns) |
+| `metadata/qc_bins.csv` | step 2 | the result of the raw data check per bin, put in the EcoTaxa tables (`sample_acq_qc_` columns) |
 | `log/metadata_check_<date>.txt` | step 4 | the points to check, with their spreadsheet rows |
 | `figures/sample_qc_*.png`, `figures/acquisition_qc_*.png` | steps 2 and 4 | the sampling metadata figures (map, environmental values) and the acquisition figures (concentration, images per trigger, stream, cut images, humidity); the older `qc_*.png` are removed when they are made again |
 | `figures/blobs_<bin>_seed<n>.png` | `show_blobs.py` | images above their blobs |

@@ -47,14 +47,14 @@ else:
 bin_problems = project.check_bins(stats, metadata.bin_time)
 project.write_qc(str(folder), stats, bin_problems)  # for the EcoTaxa tables, step 5
 rows = project.qc_rows(stats, bin_problems)
-LABELS = {"sample_qc_images": "Images", "sample_volume_analyzed_ml": "mL analysed",
-          "sample_qc_syringe_volume_ml": "Syringe volume (mL)", "sample_qc_run_time_s": "Run time (s)",
-          "sample_qc_images_per_trigger": "Images per trigger", "sample_qc_humidity_pct": "Humidity (%)",
-          "sample_qc_stream_y_median_px": "Stream position, y (px)", "sample_qc_stream_y_spread_px": "Stream width, y (px)",
-          "sample_qc_cut_images_pct": "Cut images (%)"}
+LABELS = {"sample_acq_qc_images": "Images", "sample_volume_analyzed_ml": "mL analysed",
+          "sample_acq_qc_syringe_volume_ml": "Syringe volume (mL)", "sample_acq_qc_run_time_s": "Run time (s)",
+          "sample_acq_qc_images_per_trigger": "Images per trigger", "sample_acq_qc_humidity_pct": "Humidity (%)",
+          "sample_acq_qc_stream_y_median_px": "Stream position, y (px)", "sample_acq_qc_stream_y_spread_px": "Stream width, y (px)",
+          "sample_acq_qc_cut_images_pct": "Cut images (%)"}
 FLAG_COLOURS = {3: "background-color: rgba(235,104,52,.30)", 4: "background-color: rgba(200,40,40,.40)",
                 9: "background-color: rgba(120,120,120,.15)"}
-bad = [r for r in rows if r["sample_qc_flag"] in (3, 4)]
+bad = [r for r in rows if r["sample_acq_qc_flag"] in (3, 4)]
 gaps = [p for p in bin_problems if p["check"] == "Gap in the sampling"]
 if bad:
     st.warning(f"**{len(bad)} bad bin(s)** (flag 4) out of {len(rows)}. "
@@ -65,9 +65,9 @@ show_all = st.toggle("Show every bin", value=not bad, key=f"qc_all_{folder}")
 shown = rows if show_all else bad
 if shown:
     table = pd.DataFrame([{"Bin": r["bin"], **{LABELS[c]: r[c] for _, c, _, _ in project.QC_COLUMNS},
-                           "Flag": r["sample_qc_flag"], "Reasons": r["sample_qc_flag_causes"]} for r in shown])
+                           "Flag": r["sample_acq_qc_flag"], "Reasons": r["sample_acq_qc_flag_causes"]} for r in shown])
     flags = pd.DataFrame([{LABELS[c]: r[c + "_flag"] for _, c, check, _ in project.QC_COLUMNS if check}
-                          | {"Flag": r["sample_qc_flag"]} for r in shown])
+                          | {"Flag": r["sample_acq_qc_flag"]} for r in shown])
     styled = table.style.apply(lambda col: [FLAG_COLOURS.get(f, "") for f in flags[col.name]]
                                if col.name in flags.columns else [""] * len(col), axis=0)
     st.dataframe(styled, width="stretch", hide_index=True,
@@ -76,8 +76,8 @@ st.caption("One row per bin, one column per value measured: **red** = bad (flag 
            "*Flag* is the worst of the bin (1 = good). Only the run time and the images per trigger are checked, the "
            "other values have no flag (the NOC IFCB QC procedure is in development). Flags of the IODE scale, "
            f"used by BODC. The checks with a flag are saved in `metadata/{project.QC_CSV}` and put in the EcoTaxa tables "
-           "(step 5) as sample columns: the volume analysed, each checked value (`sample_qc_run_time_s`, `sample_qc_images_per_trigger`) "
-           "with its flag (`…_flag`), the worst flag (`sample_qc_flag`), the reasons (`sample_qc_flag_causes`) and the procedure, "
+           "(step 5) as sample columns: the volume analysed, each checked value (`sample_acq_qc_run_time_s`, `sample_acq_qc_images_per_trigger`) "
+           "with its flag (`…_flag`), the worst flag (`sample_acq_qc_flag`), the reasons (`sample_acq_qc_flag_causes`) and the procedure, "
            "so that doubtful bins are known before the classification and can be filtered in EcoTaxa. The values "
            "without a flag are shown here only.")
 if bin_problems:

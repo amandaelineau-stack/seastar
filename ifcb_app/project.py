@@ -333,31 +333,32 @@ def check_bins(stats, bin_time):
 QC_CSV = "qc_bins.csv"
 # (stat, EcoTaxa column, check that flags it or None for a value without flag, flag when it does). IODE scale (BODC):
 # 1 good, 3 probably bad (doubtful), 4 bad (failed), 9 missing value.
-QC_COLUMNS = [("rois", "sample_qc_images", None, None),  # value only, no flag (see BIN_CHECKS)
+QC_COLUMNS = [("rois", "sample_acq_qc_images", None, None),  # value only, no flag (see BIN_CHECKS)
               ("ml_analyzed", "sample_volume_analyzed_ml", None, None),
-              ("syringe_ml", "sample_qc_syringe_volume_ml", None, None),
-              ("run_time", "sample_qc_run_time_s", "Incomplete run", 4),
-              ("images_per_trigger", "sample_qc_images_per_trigger", "Few images per trigger", 4),
-              ("humidity", "sample_qc_humidity_pct", None, None),
-              ("stream_y_median", "sample_qc_stream_y_median_px", None, None),
-              ("stream_y_spread", "sample_qc_stream_y_spread_px", None, None),
-              ("cut_percent", "sample_qc_cut_images_pct", None, None)]
+              ("syringe_ml", "sample_acq_qc_syringe_volume_ml", None, None),
+              ("run_time", "sample_acq_qc_run_time_s", "Incomplete run", 4),
+              ("images_per_trigger", "sample_acq_qc_images_per_trigger", "Few images per trigger", 4),
+              ("humidity", "sample_acq_qc_humidity_pct", None, None),
+              ("stream_y_median", "sample_acq_qc_stream_y_median_px", None, None),
+              ("stream_y_spread", "sample_acq_qc_stream_y_spread_px", None, None),
+              ("cut_percent", "sample_acq_qc_cut_images_pct", None, None)]
 # Only the checks with a flag go to EcoTaxa (Amanda, 2026-11-24), as sample columns: they are about the whole bin
 # (the sample), and SeaSTAR makes one EcoTaxa acquisition per trigger. The other values are shown in step 2 only,
-# except the volume analysed: a measure, needed for concentrations.
+# except the volume analysed: a measure, needed for concentrations. Names (Amanda, 2026-11-25): sample_acq_qc_ for
+# the checks of the run in the IFCB, sample_qc_ for the checks of the deployment (the sampling: gap, cruise sheet).
 QC_EXPORT = (["sample_volume_analyzed_ml"] + [c for _, c, check, _ in QC_COLUMNS if check]
              + [c + "_flag" for _, c, check, _ in QC_COLUMNS if check]
-             + ["sample_qc_gap_before_h", "sample_qc_flag", "sample_qc_flag_causes", "sample_qc_procedure"])
+             + ["sample_qc_gap_before_h", "sample_acq_qc_flag", "sample_acq_qc_flag_causes", "sample_acq_qc_procedure"])
 QC_NEEDS = {"run_time": "syringe_ml"}  # the check of a value also needs this one, or its flag is 9
 QC_GOOD, QC_MISSING = 1, 9
 # Written as the conditions a good bin meets, with what the flags mean: the names of the failures ("Incomplete
-# run") here read as a problem of a bin flagged 1 (Amanda, 2026-11-25). The failures are in sample_qc_flag_causes.
+# run") here read as a problem of a bin flagged 1 (Amanda, 2026-11-25). The failures are in sample_acq_qc_flag_causes.
 QC_PROCEDURE = ("Bin checks of the IFCB app: run time at least half the expected (1200 s per 5 mL of "
                 "SyringeSampleVolume) and at least 85 % as many images as triggers. Flag 1 = passed, 4 = failed, "
-                "9 = not checkable. Gap before the bin in hours, no flag. NOC IFCB QC procedure in development.")
+                "9 = not checkable. NOC IFCB QC procedure in development.")
 # Checks of each image (Amanda, 2026-11-25): the columns are in every EcoTaxa table, empty until the NOC IFCB QC
 # procedure sets the methods and thresholds (cut image; image outside the stream of particles). Same pattern as the
-# sample_qc_ columns: a value and its flag per check, then the worst flag, its causes and the procedure.
+# sample_acq_qc_ columns: a value and its flag per check, then the worst flag, its causes and the procedure.
 OBJECT_QC_COLUMNS = {"object_qc_cut_edge": "t", "object_qc_cut_edge_flag": "f",
                      "object_qc_stream_distance_px": "f", "object_qc_stream_distance_px_flag": "f",
                      "object_qc_flag": "f", "object_qc_flag_causes": "t", "object_qc_procedure": "t"}
@@ -365,8 +366,8 @@ SAMPLE_COLUMNS_MAX = 60  # EcoTaxa accepts at most 60 sample_ columns
 
 
 def qc_rows(stats, problems):
-    """One dict per bin: each value, its flag (<column>_flag), the worst flag of the bin (sample_qc_flag), the reasons
-    (sample_qc_flag_causes, "ok" if none; a gap before a bin is not a problem of the bin) and the procedure."""
+    """One dict per bin: each value, its flag (<column>_flag), the worst flag of the bin (sample_acq_qc_flag), the reasons
+    (sample_acq_qc_flag_causes, "ok" if none; a gap before a bin is not a problem of the bin) and the procedure."""
     cut = cut_percent(stats)
     reasons = {}
     gaps = {p["bin"]: p["hours"] for p in problems if p["check"] == "Gap in the sampling"}
@@ -388,20 +389,21 @@ def qc_rows(stats, problems):
         # hours without a bin before this one (gap check), 0 if none, empty if not checked (< 3 bins); no flag
         row["sample_qc_gap_before_h"] = gaps.get(b, 0) if len(stats) >= 3 else ""
         known = [f for f in flags if f != QC_MISSING]
-        row["sample_qc_flag"] = max(known) if known else QC_MISSING
-        row["sample_qc_flag_causes"] = "; ".join(reasons.get(b, [])) or "ok"
-        row["sample_qc_procedure"] = QC_PROCEDURE
+        row["sample_acq_qc_flag"] = max(known) if known else QC_MISSING
+        row["sample_acq_qc_flag_causes"] = "; ".join(reasons.get(b, [])) or "ok"
+        row["sample_acq_qc_procedure"] = QC_PROCEDURE
         rows.append(row)
     return rows
 
 
 def qc_flag(row):
-    """The worst flag of a row of qc_bins.csv (acq_qc_flag: the columns had that name for an hour on 2026-11-24)."""
-    return row.get("sample_qc_flag") or row.get("acq_qc_flag")
+    """The worst flag of a row of qc_bins.csv, also in older files: sample_qc_flag (until 2026-11-25) and acq_qc_flag
+    (an hour on 2026-11-24)."""
+    return row.get("sample_acq_qc_flag") or row.get("sample_qc_flag") or row.get("acq_qc_flag")
 
 
 def bad_bins(root):
-    """Bins flagged bad (sample_qc_flag 4) in metadata/qc_bins.csv, sorted: not processed in steps 3 and 5 unless
+    """Bins flagged bad (sample_acq_qc_flag 4) in metadata/qc_bins.csv, sorted: not processed in steps 3 and 5 unless
     asked (--include-bad, or the box of the app). [] before the raw data check."""
     path = os.path.join(root, "metadata", QC_CSV)
     if not os.path.isfile(path):
@@ -451,7 +453,7 @@ def qc_bindcols(root):
         return []
     with open(path, newline="", encoding="utf-8") as f:
         header = next(csv.reader(f), [])
-    return [f"{c}:{'t' if c in ('sample_qc_flag_causes', 'sample_qc_procedure') else 'f'}:{c}" for c in header if c in QC_EXPORT]
+    return [f"{c}:{'t' if c in ('sample_acq_qc_flag_causes', 'sample_acq_qc_procedure') else 'f'}:{c}" for c in header if c in QC_EXPORT]
 
 
 def roi_positions(root, bin_name):
@@ -622,10 +624,10 @@ def warnings(root, step):
                            "bins again.")
         if not os.path.isfile(os.path.join(root, "metadata", QC_CSV)):
             out.append("No result of the raw data check yet (step 2, make_figures.py): the zips would have no "
-                       "sample_qc_ columns.")
+                       "sample_acq_qc_ columns.")
         elif len(qc_bindcols(root)) < len(QC_EXPORT):
             out.append("The result of the raw data check was saved in an older format (before 2026-11-24): open step 2 "
-                       "again (or run make_figures.py) to write the current sample_qc_ columns.")
+                       "again (or run make_figures.py) to write the current sample_acq_qc_ columns.")
         n = count_sample_columns(root)
         if n > SAMPLE_COLUMNS_MAX:
             out.append(f"The EcoTaxa tables would have up to {n} sample_ columns, EcoTaxa accepts {SAMPLE_COLUMNS_MAX}: "
