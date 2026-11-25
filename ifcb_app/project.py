@@ -362,6 +362,14 @@ QC_PROCEDURE = ("Bin checks of the IFCB app: run time at least half the expected
 OBJECT_QC_COLUMNS = {"object_qc_cut_edge": "t", "object_qc_cut_edge_flag": "f",
                      "object_qc_stream_distance_px": "f", "object_qc_stream_distance_px_flag": "f",
                      "object_qc_flag": "f", "object_qc_flag_causes": "t", "object_qc_procedure": "t"}
+# Checks of each trigger (Amanda, 2026-11-25): SeaSTAR makes one EcoTaxa acquisition per trigger, so these are the
+# only checks of the acq_ level. Empty, ideas to assess with the NOC IFCB QC procedure: several images for one trigger (acq_qc_images: images of this trigger)
+# (particles passed together), saturated scattering or fluorescence signal (none, scattering, fluorescence, both),
+# unusual time of flight (ratio to the median of the bin). With the 18 acq_ columns of SeaSTAR: 27, EcoTaxa takes 30.
+ACQ_QC_COLUMNS = {"acq_qc_images": "f", "acq_qc_images_flag": "f",
+                  "acq_qc_saturated_signal": "t", "acq_qc_saturated_signal_flag": "f",
+                  "acq_qc_time_of_flight_ratio": "f", "acq_qc_time_of_flight_ratio_flag": "f",
+                  "acq_qc_flag": "f", "acq_qc_flag_causes": "t", "acq_qc_procedure": "t"}
 SAMPLE_COLUMNS_MAX = 60  # EcoTaxa accepts at most 60 sample_ columns
 
 
