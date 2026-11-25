@@ -8,7 +8,7 @@ Each zip has the images, the WHOI features, the metadata of step 4 (metadata/met
 feature extractor version; with --blobs, the blob of each image as a second image (img_rank 1).
 Bins that already have their zip are skipped. With --bins, only those bins (or all the bins of a day, e.g.
 D20260729) are made, even if they have their zip: the new zip replaces the old one once complete. Zips: ecotaxa_import_zip_seastar/<cruise name>_<bin>.zip (e.g. pap2025new_D20250810T164958_IFCB225.zip).
-The bad bins of the raw data check (sample_qc_flag 4 in metadata/qc_bins.csv) are left out, unless --include-bad.
+The bad bins of the raw data check (sample_acq_qc_flag 4 in metadata/qc_bins.csv) are left out, unless --include-bad.
 Progress is written to log/ecotaxa_status.json (read by the app) and log/ecotaxa_<date>.log.
 """
 import argparse
@@ -130,7 +130,7 @@ def main():
     parser.add_argument("--bins", nargs="+", metavar="BIN_OR_DAY",
                         help="only these bins (names, or days DYYYYMMDD), made again even if they have their zip")
     parser.add_argument("--include-bad", action="store_true",
-                        help="also the bad bins of the raw data check (sample_qc_flag 4), left out by default")
+                        help="also the bad bins of the raw data check (sample_acq_qc_flag 4), left out by default")
     args = parser.parse_args()
 
     root = os.path.abspath(args.project)
@@ -151,7 +151,7 @@ def main():
     stats = project.load_stats(root)  # image counts, to check the feature files
     columns = metadata.read_choices(os.path.join(root, "metadata")).get("columns", {})
     bindcols = metadata.bindcol_args(columns) if os.path.isfile(os.path.join(root, "metadata", metadata.OUTPUT_CSV)) else []
-    bindcols += project.qc_bindcols(root)  # the result of the raw data check, as sample_qc_ columns
+    bindcols += project.qc_bindcols(root)  # the result of the raw data check, as sample_acq_qc_ columns
     status = {"pid": os.getpid(), "started": datetime.now().isoformat(timespec="seconds"), "workers": args.workers,
               "blobs": args.blobs, "total": len(todo), "done": 0, "errors": [], "finished": None}
     status_path = os.path.join(log_dir, "ecotaxa_status.json")
