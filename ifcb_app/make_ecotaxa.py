@@ -110,7 +110,8 @@ def make_one(root, bin_name, raw_path, args, bindcols, stats=None):
         if run.returncode != 0 or not os.path.isfile(new):
             last = (run.stderr.strip().splitlines() or run.stdout.strip().splitlines() or ["no message"])[-1]
             raise RuntimeError(f"SeaSTAR failed: {last}")
-        ecotaxa.add_columns(new, project.OBJECT_QC_COLUMNS)  # empty for now: the checks of each image are to come
+        # empty for now: the checks of each trigger and of each image are to come
+        ecotaxa.add_columns(new, {**project.ACQ_QC_COLUMNS, **project.OBJECT_QC_COLUMNS})
         blobs = ecotaxa.add_blobs(new, root) if args.blobs else 0
         shutil.copyfile(new, out + ".part")  # never half a zip under its real name (copy: tmp and out may be on two drives)
         os.replace(out + ".part", out)

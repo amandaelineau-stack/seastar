@@ -173,7 +173,11 @@ other pages; each page shows it at the top, with a **Rescan** button.
   flag). 9 columns (14 until 2026-11-24, with the values without a flag too, which are now shown in the app only). Since 2026-11-25 step 5 also adds 7 empty columns for
   the checks of each image to come, filled once the NOC IFCB QC procedure sets them: `object_qc_cut_edge` (none, left,
   right, both) and `object_qc_stream_distance_px` (distance to the centre of the stream of the bin), each with its
-  `_flag`, then `object_qc_flag`, `object_qc_flag_causes` and `object_qc_procedure`. Doubtful bins are then
+  `_flag`, then `object_qc_flag`, `object_qc_flag_causes` and `object_qc_procedure`. And 9 empty columns for
+  possible checks of each trigger (SeaSTAR makes one EcoTaxa acquisition per trigger): `acq_qc_images` (images of the
+  trigger), `acq_qc_saturated_signal` (none, scattering, fluorescence, both) and `acq_qc_time_of_flight_ratio` (to the
+  median of the bin), each with its `_flag`, then `acq_qc_flag`, `acq_qc_flag_causes` and `acq_qc_procedure`: with the
+  18 `acq_` columns of SeaSTAR, 27 of the 30 EcoTaxa accepts. Doubtful bins are then
   known before the classification, and can be filtered in EcoTaxa (e.g. `sample_acq_qc_flag` = 1). A later QC procedure
   can write the same file: step 5 only reads it. EcoTaxa accepts 60 `sample_` columns: step 5 warns if a project
   could get more.
