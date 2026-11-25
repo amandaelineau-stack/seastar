@@ -350,9 +350,11 @@ QC_EXPORT = (["sample_volume_analyzed_ml"] + [c for _, c, check, _ in QC_COLUMNS
              + ["sample_qc_gap_before_h", "sample_qc_flag", "sample_qc_flag_causes", "sample_qc_procedure"])
 QC_NEEDS = {"run_time": "syringe_ml"}  # the check of a value also needs this one, or its flag is 9
 QC_GOOD, QC_MISSING = 1, 9
-QC_PROCEDURE = ("IFCB app checks: incomplete run (run time < half the expected, 1200 s per 5 mL of SyringeSampleVolume), "
-                "images per trigger (more than 15 % fewer images than triggers); the other values without flag; "
-                "NOC IFCB QC procedure in development")
+# Written as the conditions a good bin meets, with what the flags mean: the names of the failures ("Incomplete
+# run") here read as a problem of a bin flagged 1 (Amanda, 2026-11-25). The failures are in sample_qc_flag_causes.
+QC_PROCEDURE = ("Bin checks of the IFCB app: run time at least half the expected (1200 s per 5 mL of "
+                "SyringeSampleVolume) and at least 85 % as many images as triggers. Flag 1 = passed, 4 = failed, "
+                "9 = not checkable. Gap before the bin in hours, no flag. NOC IFCB QC procedure in development.")
 SAMPLE_COLUMNS_MAX = 60  # EcoTaxa accepts at most 60 sample_ columns
 
 
