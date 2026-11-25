@@ -141,6 +141,31 @@ def add_blobs(zip_path, root):
     return added
 
 
+def add_columns(zip_path, columns):
+    """Add the columns {name: "t" or "f"} that the tables of an EcoTaxa zip do not have yet, empty, at the end of each
+    row (e.g. project.OBJECT_QC_COLUMNS, to be filled later). The zip is rewritten in place. Returns the number added."""
+    tmp = zip_path + ".tmp"
+    added = 0
+    with zipfile.ZipFile(zip_path) as src, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as dst:
+        for item in src.infolist():
+            data = src.read(item)
+            if not item.filename.endswith(".tsv"):
+                dst.writestr(item, data)
+                continue
+            rows = list(csv.reader(io.StringIO(data.decode("utf-8")), delimiter="\t"))
+            new = [c for c in columns if c not in rows[0]]
+            rows[0] += new
+            rows[1] += [f"[{columns[c]}]" for c in new]
+            for r in rows[2:]:
+                r += [""] * len(new)
+            added = max(added, len(new))
+            text = io.StringIO()
+            csv.writer(text, delimiter="\t", lineterminator="\n").writerows(rows)
+            dst.writestr(item, text.getvalue())
+    os.replace(tmp, zip_path)
+    return added
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--blobs", action="store_true", required=True,

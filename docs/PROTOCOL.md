@@ -168,7 +168,10 @@ other pages; each page shows it at the top, with a **Rescan** button.
   (`sample_qc_run_time_s`) and the images per trigger (`sample_qc_images_per_trigger`) with their flags (`…_flag`), the
   hours without a bin before the bin (`sample_qc_gap_before_h`, 0 if no gap, no flag), the worst flag of the bin
   (`sample_qc_flag`), the reasons (`sample_qc_flag_causes`, `ok` if none) and the procedure (`sample_qc_procedure`): 9
-  columns since 2026-11-24 (14 before, with the values without a flag too, which are now shown in the app only). Doubtful bins are then
+  columns since 2026-11-24 (14 before, with the values without a flag too, which are now shown in the app only). Since 2026-11-25 step 5 also adds 7 empty columns for
+  the checks of each image to come, filled once the NOC IFCB QC procedure sets them: `object_qc_cut_edge` (none, left,
+  right, both) and `object_qc_stream_distance_px` (distance to the centre of the stream of the bin), each with its
+  `_flag`, then `object_qc_flag`, `object_qc_flag_causes` and `object_qc_procedure`. Doubtful bins are then
   known before the classification, and can be filtered in EcoTaxa (e.g. `sample_qc_flag` = 1). A later QC procedure
   can write the same file: step 5 only reads it. EcoTaxa accepts 60 `sample_` columns: step 5 warns if a project
   could get more.

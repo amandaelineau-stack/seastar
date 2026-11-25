@@ -39,6 +39,21 @@ def test_add_blobs():
 
 
 
+def test_add_columns():
+    with tempfile.TemporaryDirectory() as root:
+        out = os.path.join(root, "upload.zip")
+        with zipfile.ZipFile(out, "w") as z:
+            z.writestr("p/ecotaxa_x.tsv", "object_id\tobject_area\n[t]\t[f]\na_1\t20\na_2\t30\n")
+            z.writestr("p/a_1.png", b"image")
+        assert ecotaxa.add_columns(out, project.OBJECT_QC_COLUMNS) == 7
+        assert ecotaxa.add_columns(out, project.OBJECT_QC_COLUMNS) == 0  # a second run adds nothing
+        with zipfile.ZipFile(out) as z:
+            rows = list(csv.reader(io.StringIO(z.read("p/ecotaxa_x.tsv").decode()), delimiter="\t"))
+            assert z.read("p/a_1.png") == b"image"
+        assert rows[0] == ["object_id", "object_area", *project.OBJECT_QC_COLUMNS], rows[0]
+        assert rows[1][2:4] == ["[t]", "[f]"] and rows[2] == ["a_1", "20"] + [""] * 7, rows
+
+
 def test_compare():
     with tempfile.TemporaryDirectory() as tmp:
         def table(project_dir, folder, name, header, types, in_zip=True):
@@ -74,6 +89,7 @@ def test_split_title():
 
 if __name__ == "__main__":
     test_add_blobs()
+    test_add_columns()
     test_compare()
     test_split_title()
     print("ok")
