@@ -233,6 +233,23 @@ def read_bin_stats(path, bin_name):
             "syringe_ml": number("SyringeSampleVolume")}
 
 
+def write_status(path, status, tries=10):
+    """Writes the progress file of a background run (log/*_status.json) through a .tmp file, so the app never
+    reads a half-written file. On a network drive, Windows refuses to replace a file while the app is reading
+    it: try again for a few seconds, then skip this update (the next one will do) rather than stop the run."""
+    import time
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(status, f)
+    for i in range(tries):
+        try:
+            os.replace(tmp, path)
+            return True
+        except PermissionError:
+            time.sleep(0.5 * (i + 1))
+    return False
+
+
 def load_stats(root):
     path = os.path.join(root, "log", STATS_CSV)
     stats = {}

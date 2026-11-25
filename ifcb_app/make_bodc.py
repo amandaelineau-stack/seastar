@@ -197,10 +197,7 @@ def main():
     log = open(os.path.join(log_dir, f"bodc_{datetime.now():%Y%m%d_%H%M%S}.log"), "a", encoding="utf-8")
 
     def save():
-        tmp = status_path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(status, f)
-        os.replace(tmp, status_path)
+        project.write_status(status_path, status)
 
     def say(text):
         log.write(text)
