@@ -1,4 +1,4 @@
-"""Step 4 on the command line: the quality check figures and the bin checks of a project.
+"""Step 2 on the command line (and again after step 3): the quality check figures and the bin checks of a project.
 
     python make_figures.py <project folder>
 
@@ -41,7 +41,7 @@ def main():
         with open(meta_csv, newline="", encoding="utf-8") as f:
             meta_rows = list(csv.DictReader(f))
     else:
-        print("No metadata file yet (step 4): only the concentration and the instrument values are plotted.")
+        print("No metadata file yet (step 3): only the concentration and the instrument values are plotted.")
 
     problems = project.check_bins(stats, metadata.bin_time)
     last_metadata = project.last_report(root, "metadata_check")  # its points are coloured in the figures too

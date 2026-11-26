@@ -15,9 +15,9 @@ folder = common.current_project()
 root = str(folder)
 st.caption(f"For the British Oceanographic Data Centre, in `{make_bodc.BODC_DIR}/`: the iFDO spreadsheet (FAIR digital "
            "objects for images: one header for the project, one row per bin) and `refs/<bin>.json` per bin, with a "
-           "UUID and the SHA-256 of its .adc, .hdr and .roi. Positions and depths come from step 4.")
+           "UUID and the SHA-256 of its .adc, .hdr and .roi. Positions and depths come from step 3.")
 if not (folder / "metadata" / "metadata_ecotaxa.csv").is_file():
-    st.warning("No metadata yet (step 4): the bins will have no latitude, longitude or altitude.")
+    st.warning("No metadata yet (step 3): the bins will have no latitude, longitude or altitude.")
 
 
 def start_bodc(n, names=None, include_bad=False):
@@ -79,7 +79,7 @@ def bodc_panel():
         else:
             st.success(msg + ", no error. The log is in `log/bodc_<date>.log`.")
         if status.get("no_position"):
-            with st.expander(f"{len(status['no_position'])} bin(s) without latitude/longitude in step 4"):
+            with st.expander(f"{len(status['no_position'])} bin(s) without latitude/longitude in step 3"):
                 st.code("\n".join(status["no_position"]), language=None)
     elif status:
         st.warning(f"The last run stopped before the end ({status['done']} / {status['total']} bins). Run it again: "

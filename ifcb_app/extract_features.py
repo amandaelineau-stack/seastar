@@ -77,6 +77,9 @@ def main():
     save()
     for w in warnings:
         say(f"WARNING: {w}\n")
+    if not os.path.isfile(os.path.join(root, "metadata", "metadata_ecotaxa.csv")):  # advised, not required
+        say("NOTE: no metadata saved yet (step 3, make_metadata.py). Checking them first is advised, so that this "
+            "long run is made on a clean project, but it is not required.\n")
     if bad:
         say(f"{len(bad)} bad bin(s) (flag 4) not processed (--include-bad to process them): {', '.join(bad)}\n")
     say(f"WHOI ifcb-features {version}, {len(todo)} bins to process with {args.workers} workers\n")

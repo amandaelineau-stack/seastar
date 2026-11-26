@@ -40,11 +40,11 @@ def show(root):
     print("\nSteps:")
     print(f"  Raw data check: {t['raw_check'] or 'not done'}" + (f", {t['bad_bins']} bad bin(s)" if t["bad_bins"] else ""))
     bad = lambda n: f" (bad bins: {n} / {t['bad_bins']}, not processed unless --include-bad)" if t["bad_bins"] else ""
-    print(f"  Features:       {t['features']} / {t['good_bins']} bins" + bad(t["bad_features"])
-          + (f", made {t['features_made']}" if t["features_made"] else ""))
     print("  Metadata:       " + (f"saved {t['metadata']}, {t['metadata_flagged']} bin(s) flagged"
                                   + (f"; last check: {t['metadata_check']}" if t["metadata_check"] else "")
                                   if t["metadata"] else "not saved"))
+    print(f"  Features:       {t['features']} / {t['good_bins']} bins" + bad(t["bad_features"])
+          + (f", made {t['features_made']}" if t["features_made"] else ""))
     print(f"  EcoTaxa tables: {t['zips']} / {t['good_bins']} bins" + bad(t["bad_zips"])
           + (f", made {t['zips_made']}" if t["zips_made"] else ""))
     print("Order of the steps: " + ("ok" if not t["order"] else f"{len(t['order'])} point(s)"))

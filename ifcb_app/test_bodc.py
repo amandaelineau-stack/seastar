@@ -33,7 +33,7 @@ def test_make_bodc():
         wb = openpyxl.load_workbook(make_bodc.xlsx_path(root))
         rows = [r[1:8] for r in wb["Event items"].iter_rows(min_row=4, values_only=True)]
         assert rows[0][:5] == ("D20250810T164958", f"refs/{A}.json", 48.97, -16.5, -30), rows
-        assert rows[0][5] == ref["set_uuid"] and rows[1][2] is None  # B: no position in step 4
+        assert rows[0][5] == ref["set_uuid"] and rows[1][2] is None  # B: no position in step 3
         header = {r[0]: r[1] for r in wb["Event header"].iter_rows(min_row=2, values_only=True)}
         assert header["image-set-name"] == "ifcb_sn225_t1_test" and header["image-set-min-latitude-degrees"] == 48.97
         set_uuid = header["image-set-uuid"]

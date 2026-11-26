@@ -8,7 +8,7 @@ Writes in <project>/bodc/:
   with their paths relative to the json;
 - bodc_ifdo_metadata_<project folder>.xlsx: bodc_ifdo_template.xlsx with the header of bodc/bodc_header.json
   (edited on the BODC page of the app) and one row per bin: date and time (from the bin name), json, latitude and
-  longitude of step 4, altitude = minus the depth of step 4, UUID and SHA-256 of the json.
+  longitude of step 3, altitude = minus the depth of step 3, UUID and SHA-256 of the json.
 Reading every .roi to hash it is the slow part: a bin whose json is newer than its three raw files is not read again,
 unless chosen with --bins. The bad bins of the raw data check (sample_acq_qc_flag 4) are left out, unless --include-bad.
 Progress: log/bodc_status.json (read by the app) and log/bodc_<date>.log.
@@ -231,7 +231,7 @@ def main():
         say(f"{path}: {len(rows)} bin(s)\n")
         if no_position:
             status["no_position"] = no_position
-            say(f"WARNING: {len(no_position)} bin(s) without latitude/longitude in the metadata of step 4: "
+            say(f"WARNING: {len(no_position)} bin(s) without latitude/longitude in the metadata of step 3: "
                 f"{', '.join(no_position)}\n")
     except Exception as e:
         status["errors"].append(f"spreadsheet: {e}")

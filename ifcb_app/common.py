@@ -13,9 +13,9 @@ import project
 REPO = Path(__file__).resolve().parent
 MINUTES_PER_BIN = 2  # measured: ~2 min for a bin of ~5000 ROIs on one core
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-STEP_PAGES = {1: "steps/step1_project.py", 2: "steps/step2_raw_check.py", 3: "steps/step3_features.py",
-              4: "steps/step4_metadata.py", 5: "steps/step5_ecotaxa.py"}
-STEP_TITLES = {1: "1 · Project", 2: "2 · Raw data check", 3: "3 · Features", 4: "4 · Metadata", 5: "5 · EcoTaxa tables"}
+STEP_PAGES = {1: "steps/step1_project.py", 2: "steps/step2_raw_check.py", 3: "steps/step3_metadata.py",
+              4: "steps/step4_features.py", 5: "steps/step5_ecotaxa.py"}
+STEP_TITLES = {1: "1 · Project", 2: "2 · Raw data check", 3: "3 · Metadata", 4: "4 · Features", 5: "5 · EcoTaxa tables"}
 ICONS = {"done": "✅", "check": "⚠️", "todo": ":material/check_box_outline_blank:", "running": ":material/hourglass_top:"}
 
 
@@ -128,7 +128,7 @@ def duration(minutes):
 
 
 def bin_choice(folder, key, todo, new_label):
-    """Which bins to run (steps 3 and 5): (None, n, include_bad) for the bins `todo` not done yet (`new_label`), or
+    """Which bins to run (steps 4 and 5): (None, n, include_bad) for the bins `todo` not done yet (`new_label`), or
     (the days and bins picked, their number of bins, include_bad) for --bins: those are done again even if already
     done. The bad bins of step 2 (flag 4) are left out unless the box is checked (--include-bad)."""
     radio = st.container()
@@ -168,7 +168,7 @@ def metadata_rows(root):
 
 
 def saved_metadata_problems(root):
-    """The points of the last metadata check (the report written with the metadata file of step 4)."""
+    """The points of the last metadata check (the report written with the metadata file of step 3)."""
     report = project.last_report(str(root), "metadata_check")
     return metadata.read_report(report[0]) if report and metadata_rows(root) is not None else []
 
@@ -208,18 +208,18 @@ def _progress(folder):
     bad = set(project.bad_bins(str(folder)))  # not processed by default: they do not keep a step from being done
     left = sum(1 for b in bins_without_features(str(folder)) if b not in bad)
     if feat and feat.get("running"):
-        out[3] = ("running", f"running: {feat['done']} / {plural_bins(feat['total'])}")
+        out[4] = ("running", f"running: {feat['done']} / {plural_bins(feat['total'])}")
     elif left:
-        out[3] = ("todo", f"{plural_bins(left)} without features")
+        out[4] = ("todo", f"{plural_bins(left)} without features")
     elif feat and feat.get("errors"):
-        out[3] = ("check", f"{plural_bins(len(feat['errors']))} failed in the last run")
+        out[4] = ("check", f"{plural_bins(len(feat['errors']))} failed in the last run")
     else:
-        out[3] = ("done", "every bin has its features")
+        out[4] = ("done", "every bin has its features")
     if metadata_rows(folder) is None:
-        out[4] = ("todo", "no metadata saved yet")
+        out[3] = ("todo", "no metadata saved yet")
     else:
         n = len({p["bin"] for p in saved_metadata_problems(folder) if p["bin"]})
-        out[4] = ("check", f"{plural_bins(n)} with a point to check") if n else ("done", "metadata saved, no point to check")
+        out[3] = ("check", f"{plural_bins(n)} with a point to check") if n else ("done", "metadata saved, no point to check")
     eco = extraction_status(folder, "ecotaxa")
     if eco and eco.get("running"):
         out[5] = ("running", f"running: {eco['done']} / {plural_bins(eco['total'])}")
@@ -238,11 +238,11 @@ progress = st.cache_data(ttl=20, show_spinner=False)(_progress)
 
 
 def states(folder):
-    """progress(), plus a run started from step 3 or 5 in this session: shown at once (the cached progress can be
+    """progress(), plus a run started from step 4 or 5 in this session: shown at once (the cached progress can be
     20 s old), and its end too, even when the page of the step is not open (its progress panel refreshes on its own,
     not the menu)."""
     out = dict(progress(folder))
-    for job, step, flag in (("features", 3, "extraction_started"), ("ecotaxa", 5, "ecotaxa_started")):
+    for job, step, flag in (("features", 4, "extraction_started"), ("ecotaxa", 5, "ecotaxa_started")):
         if st.session_state.get(flag):
             run = extraction_status(folder, job)
             if run is None or not run.get("finished"):

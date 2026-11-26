@@ -7,7 +7,7 @@ import project
 from ui import DEFAULT_PARENT, folder_input
 
 st.title("Current status")
-st.caption("For each project chosen: the bins, the raw data check, the features, the metadata and the EcoTaxa tables, "
+st.caption("For each project chosen: the bins, the raw data check, the metadata, the features and the EcoTaxa tables, "
            "with their dates, and what was done out of order (e.g. EcoTaxa tables made before the last metadata). "
            "Reads the folder listings only; nothing is written.")
 
@@ -45,9 +45,9 @@ for i, name in enumerate(chosen):
     rows.append({"Project": name, "Bins": t["bins"], "Days": t["days"],
                  "Raw data check": (f"{'⚠️' if t['bad_bins'] else '✅'} {t['raw_check']}"
                                     + (f" · {t['bad_bins']} bad" if t["bad_bins"] else "")) if t["raw_check"] else "☐",
+                 "Metadata": meta, "Last metadata check": t["metadata_check"],
                  "Features": done(t["features"], t["good_bins"], t["bad_features"], t["bad_bins"]),
                  "Features made": t["features_made"],
-                 "Metadata": meta, "Last metadata check": t["metadata_check"],
                  "EcoTaxa tables": done(t["zips"], t["good_bins"], t["bad_zips"], t["bad_bins"]),
                  "Tables made": t["zips_made"],
                  "Order of the steps": f"⚠️ {len(t['order'])} to look at" if t["order"] else "✅",
