@@ -269,7 +269,7 @@ for col, (c, title) in zip(st.columns(2), TOP_MAPS):
     col.markdown(f"**{title}**")
     key = qc.figure_name(c, "map")
     if key in figures:
-        col.altair_chart(figures[key][1], width="stretch")
+        col.altair_chart(figures[key][1], width="content")
     else:
         col.info("No value or no position for this variable.")
 
@@ -278,7 +278,7 @@ _, counts = qc.position_map(df)
 left, right = st.columns(2)
 flags = qc.flag_chart(df)
 if flags is not None:
-    left.altair_chart(flags, width="stretch")
+    left.altair_chart(flags, width="content")
 right.markdown("\n".join(f"- **{s}**: {n} bin{'s' if n > 1 else ''}" for s, n in counts.items()))
 right.caption("🔴 bad run of the raw data check (step 2, flag 4) · 🟠 metadata missing or out of range "
               "(`sample_metadata_flag` 9 or 3), or a position to check · 🔵 nothing to report. Hover a point for its "
