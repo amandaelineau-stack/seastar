@@ -114,9 +114,15 @@ def test_new_columns():
     new = metadata.new_columns(columns, rows, "bin", {"Latitude"})
     assert new == ["Oxygen [umol/kg]", "Ship note"], new  # Latitude used, Empty has no value
     assert metadata.propose_field("Oxygen [umol/kg]", rows) == {"field": "oxygen", "ecotaxa_column": "sample_oxygen",
-                                                                "type": "f", "unit": "umol/kg"}
+                                                                "type": "f", "unit": "umol/kg", "existing": False}
     assert metadata.propose_field("Ship note", rows)["type"] == "t"
-    assert metadata.propose_field("time", [{"time": "12:00"}])["ecotaxa_column"] == "sample_time_sheet"  # sample_time is taken
+    for column, field in (("sal_corrected", "salinity"), ("Temp_CTD", "temperature"), ("lat_corrected", "lat"),
+                          ("chla_corrected", "chla"), ("depth_max_corrected", "depth_max"), ("niskin_id", "niskin_id"),
+                          ("ctd_id (corrected)", "ctd_id")):
+        p = metadata.propose_field(column, [{column: "1"}])  # a field of the list before a new name
+        assert p["existing"] and p["field"] == field, (column, p)
+    assert metadata.propose_field("fluo_corrected", [{"fluo_corrected": "1"}])["ecotaxa_column"] == "sample_fluo"
+    assert metadata.propose_field("metadata flag", [{"metadata flag": "x"}])["ecotaxa_column"] == "sample_metadata_flag_sheet"  # taken
 
 
 if __name__ == "__main__":
