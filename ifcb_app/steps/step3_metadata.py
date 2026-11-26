@@ -261,7 +261,9 @@ df, variables, depth = qc.frame(stats, meta_rows, meta_problems + bin_problems)
 figures = qc.charts(df, variables, depth)
 TOP_MAPS = [("rois_per_ml", "Particle concentration (images mL⁻¹)"), ("sample_chla_mg_m3", "Chlorophyll a (mg m⁻³)")]
 st.markdown("#### Maps along the track")
-st.caption("Each point is a bin at its position, coloured by its value (violet low, yellow high). Shift + mouse wheel "
+st.caption("Each point is a bin at its position, coloured by its value (violet low, yellow high). Grey: the coast "
+           "(Natural Earth 1:50m); blue: the isobaths 200, 1000, 2000 and 4000 m (NOAA ETOPO1, hover one for its depth; "
+           "not drawn offline). Shift + mouse wheel "
            "to zoom, drag to move, double-click to reset; hover a point for its values.")
 for col, (c, title) in zip(st.columns(2), TOP_MAPS):
     col.markdown(f"**{title}**")

@@ -132,9 +132,22 @@ def test_new_columns():
     assert metadata.propose_field("metadata flag", [{"metadata flag": "x"}])["ecotaxa_column"] == "sample_metadata_flag_sheet"  # taken
 
 
+def test_clip_lines():
+    """A coastline leaving the frame and coming back is cut in two pieces, not joined by a straight segment."""
+    import pandas as pd
+
+    import qc
+    line = pd.DataFrame({"lon": [0, 1, 5, 6, 2, 3], "lat": [0] * 6, "order": range(6), "ring": [7] * 6})
+    kept = qc.clip_lines(line, "ring", (-1, 4, -1, 1), 100)
+    assert list(kept["lon"]) == [0, 1, 2, 3] and kept["piece"].nunique() == 2, kept
+    assert len(qc.clip_lines(line, "ring", (10, 11, 10, 11), 100)) == 0
+    assert len(qc.coastline()) > 10000  # the 1:50m outline is read
+
+
 if __name__ == "__main__":
     test_build()
     test_checks()
     test_add_field()
     test_new_columns()
+    test_clip_lines()
     print("ok")

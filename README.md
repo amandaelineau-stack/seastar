@@ -173,7 +173,7 @@ The feature extraction and the EcoTaxa tables started from the app run as their 
 | `metadata.py` | Builds `metadata_ecotaxa.csv` from the spreadsheet and the chosen columns, and the checks (no interface code) |
 | `metadata_columns.csv` | The shared list of metadata fields: EcoTaxa column(s), type `f`/`t`, unit, value if empty, expected range. Columns added from the page are written here |
 | `qc.py` | The quality check figures, used by the pages of steps 2 and 3 and by `make_figures.py` (no interface code) |
-| `world-110m.json` | Land outline of the maps of steps 2 and 3 (Natural Earth 1:110m, public domain, from vega-datasets), kept with the app so the maps work offline |
+| `land-50m.json` | Land outline of the maps (Natural Earth 1:50m, public domain, from world-atlas, ISC licence), kept with the app so the maps work offline; the isobaths come from NOAA ETOPO1 (public domain), asked once per area and kept in `%LOCALAPPDATA%ifcb_appbathymetry` |
 | `whoi/extract_slim_features.py` | Copied unchanged from WHOI ifcb-features v1.3.1 (MIT licence, `whoi/LICENSE`): this script is not part of the pip package |
 | `ecotaxa.py` | Adds the blobs to the EcoTaxa zips made by SeaSTAR, as `img_rank` 1 rows (used by `make_ecotaxa.py --blobs`, or alone: table above) |
 | `test_project.py`, `test_metadata.py`, `test_ecotaxa.py`, `test_bodc.py` | Tests: `python test_project.py`, `python test_metadata.py`, `python test_ecotaxa.py`, `python test_bodc.py` |
