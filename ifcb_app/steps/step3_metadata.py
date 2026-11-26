@@ -263,12 +263,7 @@ st.caption("A point far from the others is often a typo. In each figure, only th
            "figure shows are coloured, and the legend names the reason (e.g. *Out of range* in the salinity, "
            "*Position jump* on the map). Hover a point: *to check* lists every reason of the bin. Bin-name typos and "
            "bins without metadata are in the table above only.")
-if qc.MAP_FIGURE in figures:
-    _, counts = qc.position_map(df)
-    st.altair_chart(figures[qc.MAP_FIGURE][1], width="content")
-    st.caption(" · ".join(f"{s}: {n}" for s, n in counts.items()) + ". Red: bad bins of the raw data check (step 2); "
-               "orange: values missing or out of range (`sample_metadata_flag` 9 or 3) or a position to check. Hover "
-               "a point for its reasons.")
+common.flag_map(df)
 st.caption("One row per variable: against the time the IFCB analysed the bin (left) and against depth (right).")
 for c, title, by_depth in variables:
     if not by_depth:

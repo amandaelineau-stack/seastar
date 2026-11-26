@@ -173,6 +173,39 @@ def saved_metadata_problems(root):
     return metadata.read_report(report[0]) if report and metadata_rows(root) is not None else []
 
 
+def flag_map(df):
+    """The map of steps 2 and 3 on a real background map (zoom with the mouse wheel), one point per bin coloured by
+    qc.map_status (red bad run, orange metadata to check, blue nothing to report), the reasons on hover; then a line
+    with the numbers of bins. The PNG of figures/ is qc.position_map (a fixed map)."""
+    import math
+
+    import pydeck as pdk
+
+    import qc
+    _, counts = qc.position_map(df)  # the numbers, with the bins without a position
+    if not {"object_lat", "object_lon"} <= set(df.columns):
+        return
+    pos = df.assign(status=qc.map_status(df)).dropna(subset=["object_lat", "object_lon"])
+    if pos.empty:
+        return
+    colours = {s: [int(c[i:i + 2], 16) for i in (1, 3, 5)] for s, c in qc.STATUSES}
+    pos = pos.assign(color=pos["status"].map(colours), lat=pos["object_lat"].round(4), lon=pos["object_lon"].round(4),
+                     reasons=pos["to check"].fillna("") if "to check" in pos.columns else "",
+                     top=(pos["status"] != "nothing to report").astype(int)).sort_values("top")  # flagged on top
+    span = max(pos["lon"].max() - pos["lon"].min(), pos["lat"].max() - pos["lat"].min(), 0.05)
+    view = pdk.ViewState(latitude=float(pos["lat"].mean()), longitude=float(pos["lon"].mean()),
+                         zoom=max(1, min(12, math.log2(360 / span) - 0.5)))
+    layer = pdk.Layer("ScatterplotLayer", pos[["bin", "lat", "lon", "status", "reasons", "color"]],
+                      get_position=["lon", "lat"], get_fill_color="color", get_radius=5, radius_units="pixels",
+                      pickable=True, opacity=0.85)
+    st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view, map_style=None,
+                             tooltip={"html": "<b>{bin}</b><br/>{status}<br/>lat {lat}, lon {lon}<br/>{reasons}"}))
+    st.caption(" · ".join(f"{s}: {n}" for s, n in counts.items()) + ". 🔴 bad run of the raw data check (flag 4) · "
+               "🟠 metadata missing or out of range (`sample_metadata_flag` 9 or 3), or a position to check · 🔵 nothing "
+               "to report. Mouse wheel to zoom, drag to move, hover a point for its reasons. The positions come from "
+               "the metadata of step 3 (the columns chosen there, e.g. lat_corrected): the IFCB records none.")
+
+
 def flagged_bins(root):
     """{bin: [reasons]} of the last metadata check and of the bin checks: what is still to check before EcoTaxa."""
     stats = known_stats(root)
