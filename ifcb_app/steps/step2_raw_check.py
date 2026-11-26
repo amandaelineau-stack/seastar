@@ -101,15 +101,29 @@ would look good). The NOC IFCB QC procedure, in development, will add more.
 
 df, variables, _ = qc.frame(stats, None, bin_problems)
 figures = qc.charts(df, variables, None)
-st.subheader("Against time")
-st.caption("In each figure, only the bins flagged for a reason that figure shows are coloured, and the legend names "
-           "the reason. Hover a point: *to check* lists every reason of the bin. Drag to pan, Shift + mouse wheel to zoom, double-click to reset.")
+HOW_TO_READ = ("Each point is a bin, against the time the IFCB analysed it. Only the bins flagged for a reason the figure "
+               "shows are coloured, and the legend names the reason. Hover a point: *to check* lists every reason of the "
+               "bin. Drag to pan, Shift + mouse wheel to zoom, double-click to reset.")
+RUN = ["rois_per_ml", "images_per_trigger"]  # the values behind the sample_acq_ columns of the EcoTaxa tables
 names = [c for c, _, _ in variables]
-for i in range(0, len(names), 2):
-    for col, c in zip(st.columns(2), names[i:i + 2]):
-        col.altair_chart(figures[qc.figure_name(c, "time")][1], width="stretch")
+groups = [("Run in the IFCB: volume, images and triggers",
+           "In the EcoTaxa tables (step 5): `sample_acq_volume_analyzed_ml` (the volume behind the concentration) and "
+           "`sample_acq_qc_images_per_trigger` with its flag, summed up in `sample_acq_qc_flag`, "
+           "`sample_acq_qc_flag_causes` and `sample_acq_qc_procedure`. The run time (`sample_acq_qc_run_time_s`) is "
+           "checked in the table above.", [c for c in names if c in RUN]),
+          ("Flow, camera field and humidity: values without a flag",
+           "Shown here only, not in the EcoTaxa tables yet: once the NOC IFCB QC procedure sets their limits, they will "
+           "be checks of the run, i.e. `sample_acq_qc_…` columns with their flag.", [c for c in names if c not in RUN])]
+for title, where, cols in groups:
+    if not cols:
+        continue
+    st.subheader(title)
+    st.caption(where + " " + HOW_TO_READ)
+    for i in range(0, len(cols), 2):
+        for col, c in zip(st.columns(2), cols[i:i + 2]):
+            col.altair_chart(figures[qc.figure_name(c, "time")][1], width="stretch")
 
-st.subheader("Position of the images in the camera field")
+st.subheader("Flow: position of the images in the camera field")
 st.caption("ROI x against ROI y of every image of a bin, as the RoiXY graph of IFCBacquire and the plot of the IFCB "
            "dashboard. The images should form one compact band: spread out, or moved, they point to a bad flow. A point "
            "is the top left corner of an image; orange: the image touches the left or right edge, so it is cut (a long "
