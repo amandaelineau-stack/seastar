@@ -264,11 +264,12 @@ st.caption("A point far from the others is often a typo. In each figure, only th
            "*Position jump* on the map). Hover a point: *to check* lists every reason of the bin. Bin-name typos and "
            "bins without metadata are in the table above only.")
 if qc.MAP_FIGURE in figures:
-    pos = df.assign(why=qc.why(df, qc.MAP)).dropna(subset=["object_lat", "object_lon"])
-    st.map(pos.assign(color=[qc.SERIES if w == "ok" else qc.TO_CHECK for w in pos["why"]]),
-           latitude="object_lat", longitude="object_lon", color="color", size=400)
-    st.caption(f"{len(pos)} bin{'s' if len(pos) > 1 else ''} with a position · blue: no problem · orange: a position "
-               "to check (position jump, latitude or longitude out of range), named in the figure below")
+    position_bins = set(df.loc[qc.why(df, qc.MAP) != "ok", "bin"])  # position jump, lat/lon out of range
+    pos, counts = qc.flag_points(meta_rows, project.qc_flags(str(folder)), position_bins)
+    st.map(pos, latitude="lat", longitude="lon", color="color", size=400)
+    st.caption(" · ".join(f"{s}: {n}" for s, n in counts.items()) + ". Red: bad bins of the raw data check (step 2); "
+               "orange: values missing or out of range (`sample_metadata_flag` 9 or 3) or a position to check; the "
+               "reasons are in the tables above and in the figure below (hover a point).")
     st.altair_chart(figures[qc.MAP_FIGURE][1], width="stretch")
 st.caption("One row per variable: against the time the IFCB analysed the bin (left) and against depth (right).")
 for c, title, by_depth in variables:

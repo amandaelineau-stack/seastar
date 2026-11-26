@@ -108,6 +108,34 @@ def colour(values):
                                        symbolSize=60) if reasons else None)
 
 
+BAD = "#c62828"  # red: a bad bin of the raw data check (flag 4)
+FLAG_STATUS = {BAD: "🔴 bad run (flag 4)", TO_CHECK: "🟠 metadata to check", SERIES: "🔵 nothing to report"}
+
+
+def flag_points(meta_rows, acq_flags, position_bins=()):
+    """The bins on the map of steps 2 and 3, coloured by their worst problem: red = bad run (flag 4 of the raw data
+    check, acq_flags {bin: flag}), orange = metadata to check (sample_metadata_flag 3 or 9, or a bin of position_bins:
+    position jump, lat/lon out of range), blue = nothing to report. The positions come from the metadata of step 3:
+    the IFCB records none. Returns (DataFrame bin, lat, lon, color, status; {status: n} with the bins without position)."""
+    points, counts = [], {}
+    for r in meta_rows or []:
+        b = r["bin"]
+        if str(acq_flags.get(b, "")) == "4":
+            color = BAD
+        elif str(r.get("sample_metadata_flag", "1")) in ("3", "9") or b in position_bins:
+            color = TO_CHECK
+        else:
+            color = SERIES
+        try:
+            lat, lon = float(r.get("object_lat", "")), float(r.get("object_lon", ""))
+        except (TypeError, ValueError):
+            counts["⚪ no position"] = counts.get("⚪ no position", 0) + 1
+            continue
+        points.append({"bin": b, "lat": lat, "lon": lon, "color": color, "status": FLAG_STATUS[color]})
+        counts[FLAG_STATUS[color]] = counts.get(FLAG_STATUS[color], 0) + 1
+    return pd.DataFrame(points, columns=["bin", "lat", "lon", "color", "status"]), counts
+
+
 MAP_FIGURE = "sample_qc_map.png"
 
 
