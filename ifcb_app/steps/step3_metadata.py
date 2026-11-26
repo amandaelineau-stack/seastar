@@ -295,11 +295,11 @@ for c, title, by_depth in variables:
     if not by_depth:
         continue  # the instrument values are in step 2
     kinds = ("time", "depth", "longitude", "latitude") + (() if c in on_top else ("map",))  # no map twice
-    shown = [figures[k][1] for a in kinds for k in [qc.figure_name(c, a)] if k in figures]
+    shown = [(a, figures[k][1]) for a in kinds for k in [qc.figure_name(c, a)] if k in figures]
     st.markdown(f"##### {title}")
     for i in range(0, len(shown), 2):
-        for col, chart in zip(st.columns(2), shown[i:i + 2]):
-            col.altair_chart(chart, width="stretch")
+        for col, (kind, chart) in zip(st.columns(2), shown[i:i + 2]):
+            col.altair_chart(chart, width="content" if kind == "map" else "stretch")  # a map keeps its proportions
 with st.expander("Table of the values plotted"):
     st.dataframe(df, width="stretch", hide_index=True)
 try:  # every figure of steps 2 and 3 as PNG in figures/, written again only when the data change
