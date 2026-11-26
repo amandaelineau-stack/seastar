@@ -21,6 +21,7 @@ INSTRUMENT = [("images_per_trigger", "Images per trigger"),
               ("cut_percent", "Images touching the edge of the camera field (%)"),
               ("humidity", "Humidity inside the IFCB (%)")]
 MAP = "map"
+POSITION = ("object_lat", "object_lon", "sample_lat", "sample_lon")  # on the map, not plotted against time
 # A point is the top left corner of an image: a long image starting in the middle can reach the right edge.
 EDGE = "touches the edge (x = 0, or x + width = right edge)"
 
@@ -41,7 +42,7 @@ def reasons_by_figure(problems):
             keys = [MAP]
         elif p["check"] in ("Out of range", "Not a number"):
             columns = columns_of.get(p["detail"].split(" = ")[0], [])
-            keys = [MAP if c in ("object_lat", "object_lon") else c for c in columns]
+            keys = list(dict.fromkeys(MAP if c in POSITION else c for c in columns))
         for k in keys:
             reasons = out.setdefault(k, {}).setdefault(p["bin"], [])
             if p["check"] not in reasons:
@@ -73,7 +74,7 @@ def frame(stats, meta_rows, problems):
         df[f"why {key}"] = [by_bin.get(b, "") for b in df["bin"]]
     depth = "sample_depth_min" if "sample_depth_min" in df.columns and df["sample_depth_min"].notna().any() else None
     variables = [("rois_per_ml", "Particle concentration (images mL-1)", True)] + [
-        (c, labels[c], True) for c in df.columns if c in numeric and c.startswith("sample_") and "depth" not in c
+        (c, labels[c], True) for c in df.columns if c in numeric and c.startswith("sample_") and "depth" not in c and c not in POSITION
         and df[c].notna().any()] + [(c, t, False) for c, t in INSTRUMENT if c in df.columns and df[c].notna().any()]
     return df, variables, depth
 

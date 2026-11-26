@@ -37,6 +37,7 @@ def test_build():
     assert (r1["sample_date"], r1["sample_time"]) == ("2025-06-10", "08:15:00")  # from the bin name
     assert (r1["sample_niskin_date"], r1["sample_niskin_time"]) == ("2025-06-10", "07:05:00")
     assert r1["sample_depth_min"] == r1["object_depth_min"] == "30"
+    assert r1["sample_lat"] == r1["object_lat"] != ""  # EcoTaxa requires sample_lat/lon too
     assert r2["sample_depth_min"] == "5"  # empty cell: the constant
     assert r3["object_depth_min"] == "5" and r3["object_lat"] == ""  # bin not in the spreadsheet
     assert r1["sample_niskin_id"] == "21"
