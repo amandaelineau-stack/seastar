@@ -106,7 +106,7 @@ HOW_TO_READ = ("Each point is a bin, against the time the IFCB analysed it. Only
                "bin. Drag to pan, Shift + mouse wheel to zoom, double-click to reset.")
 RUN = ["rois_per_ml", "images_per_trigger"]  # the values behind the sample_acq_ columns of the EcoTaxa tables
 names = [c for c, _, _ in variables]
-groups = [("Run in the IFCB: concentration, images and triggers",
+groups = [("Run in the IFCB: concentration and images per trigger",
            "In the EcoTaxa tables (step 5): `sample_acq_volume_analyzed_ml` (the volume analysed, from which the "
            "concentration is computed) and "
            "`sample_acq_qc_images_per_trigger` with its flag, summed up in `sample_acq_qc_flag`, "
