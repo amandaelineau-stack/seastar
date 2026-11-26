@@ -1,4 +1,4 @@
-"""Step 3: extract the features with WHOI ifcb-features v1.3.1 (a background process), then look at the images and
+"""Step 4: extract the features with WHOI ifcb-features v1.3.1 (a background process), then look at the images and
 their blobs."""
 import os
 import subprocess
@@ -9,7 +9,7 @@ import streamlit as st
 import common
 import project
 
-st.header("3 · Extract the features")
+st.header("4 · Extract the features")
 folder = common.current_project()
 
 
@@ -40,6 +40,10 @@ if WHOI_VERSION and latest and WHOI_VERSION.split(" ")[0] != latest[0]:
 st.caption(f"The 30 morphological features of the WHOI MATLAB code, and the blob masks. "
            f"Written to `{project.FEATURES_DIR}/features/<day>/` and `blobs/<day>/`. "
            "Bins that already have a feature file are skipped. Move the failed bins of step 2 out of `raw/` first.")
+if common.metadata_rows(folder) is None:  # advised, not required: the extraction is long, better start it on a clean project
+    st.info("No metadata saved yet (step 3). Checking them first is advised, so that the long extraction runs on a "
+            "clean project, but it is not required.")
+    st.page_link(common.STEP_PAGES[3], label="Go to 3 · Metadata", icon="➡️")
 
 status = common.extraction_status(folder)
 
@@ -121,4 +125,4 @@ else:
                 col.image(blob, caption="blob", width="stretch")
             else:
                 col.caption("no blob")
-st.page_link(common.STEP_PAGES[4], label="Next: 4 · Metadata", icon="➡️")
+st.page_link(common.STEP_PAGES[5], label="Next: 5 · EcoTaxa tables", icon="➡️")

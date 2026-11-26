@@ -4,7 +4,7 @@
                            [--ship SHIP] [--cruise CRUISE] [--blobs] [--workers N] [--bins BIN_OR_DAY ...]
                            [--include-bad]
 
-Each zip has the images, the WHOI features, the metadata of step 4 (metadata/metadata_ecotaxa.csv) and the
+Each zip has the images, the WHOI features, the metadata of step 3 (metadata/metadata_ecotaxa.csv) and the
 feature extractor version; with --blobs, the blob of each image as a second image (img_rank 1).
 Bins that already have their zip are skipped. With --bins, only those bins (or all the bins of a day, e.g.
 D20260729) are made, even if they have their zip: the new zip replaces the old one once complete. Zips: ecotaxa_import_zip_seastar/<cruise name>_<bin>.zip (e.g. pap2025new_D20250810T164958_IFCB225.zip).
@@ -68,7 +68,7 @@ def one_row_csv(path, folder, name, bin_name, key="bin"):
 
 
 def metadata_csv(root, folder, bin_name):
-    """The metadata row of this bin; a bin added to raw/ after step 4 gets one from the saved choices (date, time and
+    """The metadata row of this bin; a bin added to raw/ after step 3 gets one from the saved choices (date, time and
     the values 'If empty', sample_metadata_flag 9), so that it still gets its EcoTaxa table."""
     path = one_row_csv(os.path.join(root, "metadata", metadata.OUTPUT_CSV), folder, "metadata.csv", bin_name)
     choices = metadata.read_choices(os.path.join(root, "metadata"))

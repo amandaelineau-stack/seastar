@@ -1,4 +1,4 @@
-"""Step 4: the sample metadata (spreadsheet → EcoTaxa columns of metadata_columns.csv), their checks, and the map and
+"""Step 3: the sample metadata (spreadsheet → EcoTaxa columns of metadata_columns.csv), their checks, and the map and
 figures of the environmental values, before the EcoTaxa tables. The figures are saved as PNG in figures/."""
 from pathlib import Path
 
@@ -10,7 +10,7 @@ import metadata
 import project
 import qc
 
-st.header("4 · Sample metadata")
+st.header("3 · Sample metadata")
 folder = common.current_project()
 
 
@@ -192,11 +192,11 @@ for c, title, by_depth in variables:
         right.altair_chart(figures[qc.figure_name(c, "depth")][1], width="stretch")
 with st.expander("Table of the values plotted"):
     st.dataframe(df, width="stretch", hide_index=True)
-try:  # every figure of steps 2 and 4 as PNG in figures/, written again only when the data change
+try:  # every figure of steps 2 and 3 as PNG in figures/, written again only when the data change
     with st.spinner("Saving the figures in figures/…"):
         saved_figures = qc.save(folder, figures, df)
-    st.caption(f"The figures of steps 2 and 4 are saved as PNG in `figures/` ({len(saved_figures['files'])} files, "
+    st.caption(f"The figures of steps 2 and 3 are saved as PNG in `figures/` ({len(saved_figures['files'])} files, "
                f"{saved_figures['saved'].replace('T', ' ')}).")
 except Exception as e:  # e.g. vl-convert not installed yet: the page still works
     st.caption(f":orange[The figures could not be saved in figures/: {e}]")
-st.page_link(common.STEP_PAGES[5], label="Next: 5 · EcoTaxa tables", icon="➡️")
+st.page_link(common.STEP_PAGES[4], label="Next: 4 · Features", icon="➡️")

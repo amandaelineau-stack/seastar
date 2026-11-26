@@ -36,8 +36,8 @@ def start_ecotaxa(root, settings, n, names=None, include_bad=False):
     st.session_state["ecotaxa_started"] = True
 
 
-st.caption(f"One zip per bin, in `{make_ecotaxa.ZIP_DIR}/`, made by SeaSTAR with the images, the features of step 3, "
-           "the metadata of step 4 and the feature extractor version. Each feature file is checked first (one row "
+st.caption(f"One zip per bin, in `{make_ecotaxa.ZIP_DIR}/`, made by SeaSTAR with the images, the features of step 4, "
+           "the metadata of step 3 and the feature extractor version. Each feature file is checked first (one row "
            "per image). Bins that already have their zip are skipped, unless chosen below.")
 
 st.subheader("Before the tables")
@@ -48,7 +48,7 @@ if not warnings and not flagged:
 for w in warnings:
     st.warning(w)
 if flagged:
-    with st.expander(f"{len(flagged)} bin(s) with a point to check in steps 2 and 4: correct them first if you can"):
+    with st.expander(f"{len(flagged)} bin(s) with a point to check in steps 2 and 3: correct them first if you can"):
         st.dataframe(pd.DataFrame([{"bin": b, "to check": " | ".join(r)} for b, r in sorted(flagged.items())]),
                      width="stretch", hide_index=True)
 

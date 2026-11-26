@@ -25,9 +25,9 @@ flowchart LR
     SHEET["Sample spreadsheet<br/>(CSV or Excel)<br/>lat, lon, depth, Niskin…"]
 
     IFCB --> S2["2 · Raw data check<br/>failed bins, flow,<br/>cut images, humidity"]
-    S2 -->|"failed bins moved out"| S3["3 · Features<br/>WHOI ifcb-features v1.3.1"]
+    S2 -->|"failed bins moved out"| S3["4 · Features<br/>WHOI ifcb-features v1.3.1"]
     S3 --> FEAT["30 features per image<br/>+ blob (outline) of each image"]
-    SHEET --> S4["4 · Sample metadata<br/>same EcoTaxa columns<br/>for every cruise, checks,<br/>map and figures"]
+    SHEET --> S4["3 · Sample metadata<br/>same EcoTaxa columns<br/>for every cruise, checks,<br/>map and figures"]
     IFCB --> S4
     S4 --> META["metadata_ecotaxa.csv<br/>one row per bin"]
     FEAT --> S5["5 · EcoTaxa tables<br/>SeaSTAR"]
@@ -41,14 +41,14 @@ flowchart LR
 |---|---|---|---|
 | 1 · Project | Creates or opens the project folder; per day, bins, features and zips; where each step stands | ✅ | `create_project.py`, `project_status.py` |
 | 2 · Raw data check | From the `.adc` and `.hdr` only: images and volume of each bin, failed bins, gaps, the instrument (images per trigger, stream of particles, cut images, humidity), the position of the images of a bin | ✅ | `make_figures.py`, `show_positions.py` |
-| 3 · Features | Measures 30 morphological features of every image and saves its blob (WHOI MATLAB-compatible); images above their blobs | ✅ | `extract_features.py`, `show_blobs.py` |
-| 4 · Sample metadata | Turns the sample spreadsheet into `metadata_ecotaxa.csv`, with the shared EcoTaxa column names, lists the errors; map and environmental values against time and depth | ✅ | `make_metadata.py`, then `make_figures.py` |
+| 3 · Sample metadata | Turns the sample spreadsheet into `metadata_ecotaxa.csv`, with the shared EcoTaxa column names, lists the errors; map and environmental values against time and depth | ✅ | `make_metadata.py`, then `make_figures.py` |
+| 4 · Features | Measures 30 morphological features of every image and saves its blob (WHOI MATLAB-compatible); images above their blobs | ✅ | `extract_features.py`, `show_blobs.py` |
 | 5 · EcoTaxa tables | What is still to check, then one zip per bin with images, blobs, features, metadata and versions | ✅ | `make_ecotaxa.py` |
 | Compare | Compares the column names and types of the EcoTaxa tables of several projects | ✅ | Python one-liner |
 
 The raw data are checked before the features, so that no time is spent extracting bins that failed. The app and the
 scripts use the same code and write the same files, so a project can be started in one and finished in the other.
-On the command line nobody looks at the column choices of step 4 before they are used: the script prints them, so
+On the command line nobody looks at the column choices of step 3 before they are used: the script prints them, so
 read them, and read the checks it prints before step 5.
 
 In the app, the menu on the left has four groups: **Current status** (where one or several projects stand, with
@@ -66,20 +66,20 @@ ifcb_sn225_ce26008_ar7e/
 ├── raw/D<yyyymmdd>/<bin>.hdr .adc .roi        the IFCB files, as copied from the instrument
 ├── metadata/
 │   ├── <your spreadsheet>.csv / .xlsx         the sample spreadsheet (one row per bin)
-│   ├── metadata_ecotaxa.csv                   written by step 4
+│   ├── metadata_ecotaxa.csv                   written by step 3
 │   └── metadata_ecotaxa.json                  its column types and the choices made
 ├── whoi_v4_V131_features/
 │   ├── features/D<yyyymmdd>/<bin>_features_v4.csv        (+ multiblob/)
 │   ├── blobs/D<yyyymmdd>/<bin>_blobs_v4.zip
 │   └── feature_extractor_versions.csv        WHOI version used for each bin
-├── figures/                                  quality check figures (PNG), steps 2 and 4
+├── figures/                                  quality check figures (PNG), steps 2 and 3
 ├── ecotaxa_import_zip_seastar/<NAME>_<bin>.zip   the files to import into EcoTaxa, step 5
 └── log/                                      what each run did (see section 7)
 ```
 
 A bin is named `D<yyyymmdd>T<hhmmss>_IFCB<serial>`, the time the IFCB started analysing it (UTC). It needs its
 three files. Failed acquisitions and bead runs should be moved out of `raw/` (for example to
-`Failed_acquisitions_rawdata/` and `raw_beads/`) before step 3: step 2 helps to find them.
+`Failed_acquisitions_rawdata/` and `raw_beads/`) before step 4: step 2 helps to find them.
 
 ---
 
@@ -115,11 +115,11 @@ flowchart TD
     C -->|yes| R["2 · Raw data check<br/>Read the raw data, look at the bins to look at,<br/>the figures and the image positions"]
     R --> R1{"Failed bins?"}
     R1 -->|yes| R2["Move them out of raw/<br/>(e.g. Failed_acquisitions_rawdata), Rescan"] --> R
-    R1 -->|no| D["3 · Run the feature extraction<br/>(background, ~2 min per bin per core),<br/>look at the images and their blobs"]
-    D --> E["4 · Choose the spreadsheet, map its columns,<br/>Save the metadata for the EcoTaxa tables"]
+    R1 -->|no| E["3 · Choose the spreadsheet, map its columns,<br/>Save the metadata for the EcoTaxa tables"]
     E --> F{"Points to check?<br/>a point far from the others?"}
     F -->|yes| F1["Correct the spreadsheet<br/>(typos in bin names, values…)"] --> E
-    F -->|no| I["5 · Before the tables: nothing left?<br/>Operator, project, ship, cruise,<br/>blobs box → Make the EcoTaxa tables"]
+    F -->|no| D["4 · Run the feature extraction<br/>(background, ~2 min per bin per core),<br/>look at the images and their blobs"]
+    D --> I["5 · Before the tables: nothing left?<br/>Operator, project, ship, cruise,<br/>blobs box → Make the EcoTaxa tables"]
     I --> J["Compare: check the tables<br/>against the other cruises"]
     J --> K([Import the zips into EcoTaxa])
 ```
@@ -144,7 +144,7 @@ other pages; each page shows it at the top, with a **Rescan** button.
   left. It is saved every 20 bins: if the page is left, the next run goes on from there.
 - Read the list of the bins to look at (the checks are in section 6 below; *What each check means* on the page).
   **Move the failed acquisitions out of `raw/`** (e.g. to `Failed_acquisitions_rawdata/`) and click **Rescan**, so
-  that step 3 does not spend time on them.
+  that step 4 does not spend time on them.
 - Look at the figures against time: concentration in images mL⁻¹, images per trigger, position and width of the
   stream of particles, images cut at the edge of the camera field, humidity. **In each figure, only the bins flagged
   for a reason that figure shows are coloured, and the legend names the reason** (a bin with several reasons takes
@@ -182,21 +182,7 @@ other pages; each page shows it at the top, with a **Rescan** button.
   can write the same file: step 5 only reads it. EcoTaxa accepts 60 `sample_` columns: step 5 warns if a project
   could get more.
 
-### Step 3 · Features
-
-- The page shows the WHOI version installed (e.g. `v1.3.1 (commit 1d0687e)`) and tells you when WHOI has
-  published a newer release. Keep one version for the whole cruise.
-- **Include the bad bins** (unchecked by default): the bins flagged bad in step 2 (flag 4) are not processed
-  unless it is checked. The menu, step 1 and *Current status* count them apart.
-- **Bins**: *All bins, skipping those already extracted* (the default), or *Chosen days or bins, done again* to pick days and bins
-  whose features are extracted again (for example a bin that failed).
-- Choose the number of cores (leave one or two free) → **Run the feature extraction**.
-- The extraction runs in its own process: you can close the tab, but the computer must stay on and awake. The
-  progress bar and **Stop** come back when you reopen the page. Bins already done are skipped, so a stopped
-  run can simply be started again.
-- Then look at **Images and their blobs**: the blob should cover the particle, not the background or a bubble.
-
-### Step 4 · Sample metadata
+### Step 3 · Sample metadata
 
 1. **Browse…** → the sample spreadsheet (CSV or Excel; choose the sheet). It needs one row per bin and a column
    with the bin name; the app finds that column.
@@ -206,8 +192,8 @@ other pages; each page shows it at the top, with a **Rescan** button.
    tables: every bin gets its row, and two columns say how complete it is, `sample_metadata_flag` (1 every field
    filled, 3 a value out of range, 9 a value missing or the bin not in the spreadsheet; IODE scale, as the QC) and
    `sample_metadata_missing` (the empty fields, `ok` if none). The classification can start in EcoTaxa; once the
-   spreadsheet is corrected, save step 4 again and make these bins again in step 5 (*Chosen days or bins*). A bin added
-   to `raw/` after step 4 gets its date, time and values *If empty*, flagged 9.
+   spreadsheet is corrected, save step 3 again and make these bins again in step 5 (*Chosen days or bins*). A bin added
+   to `raw/` after step 3 gets its date, time and values *If empty*, flagged 9.
 
 | Check | What to do |
 |---|---|
@@ -236,20 +222,34 @@ Rules applied to every cruise:
 Then, on the same page, **Map and figures**: the map, and the particle concentration and every numeric field against
 time and depth. As in step 2, a point is coloured only in the figures that show its problem, with the reason in the
 legend (e.g. *Out of range* in the salinity, *Position jump* on the map). A point far from the others is often a typo.
-The figures of steps 2 and 4 are saved in `figures/` automatically.
+The figures of steps 2 and 3 are saved in `figures/` automatically.
+
+### Step 4 · Features
+
+- The page shows the WHOI version installed (e.g. `v1.3.1 (commit 1d0687e)`) and tells you when WHOI has
+  published a newer release. Keep one version for the whole cruise.
+- **Include the bad bins** (unchecked by default): the bins flagged bad in step 2 (flag 4) are not processed
+  unless it is checked. The menu, step 1 and *Current status* count them apart.
+- **Bins**: *All bins, skipping those already extracted* (the default), or *Chosen days or bins, done again* to pick days and bins
+  whose features are extracted again (for example a bin that failed).
+- Choose the number of cores (leave one or two free) → **Run the feature extraction**.
+- The extraction runs in its own process: you can close the tab, but the computer must stay on and awake. The
+  progress bar and **Stop** come back when you reopen the page. Bins already done are skipped, so a stopped
+  run can simply be started again.
+- Then look at **Images and their blobs**: the blob should cover the particle, not the background or a bubble.
 
 ### Step 5 · EcoTaxa tables
 
 - **Before the tables** lists the warnings (bins left out, no metadata, runs that failed) and every bin still
-  flagged in steps 2 and 4, with its reasons. Correct what can be corrected first.
+  flagged in steps 2 and 3, with its reasons. Correct what can be corrected first.
 - Type once: **Operator** and **Metadata checked by** (full names, at least 5 characters), **Project**
   (`sample_project`, e.g. `ce26008_AR7E`), **Ship**, **Cruise**. They are remembered for the project.
 - Keep **Add the blob of each image as a second image (img_rank 1)** checked, unless blobs are not wanted.
-- **Include the bad bins** (unchecked by default), as in step 3.
+- **Include the bad bins** (unchecked by default), as in step 4.
 - **Bins**: *All bins, skipping those that already have their EcoTaxa zip* (the default), or *Chosen days or bins, done again*, for example the bins
-  whose row of the spreadsheet was corrected (save the metadata of step 4 again first). The new zip replaces the old one only once
+  whose row of the spreadsheet was corrected (save the metadata of step 3 again first). The new zip replaces the old one only once
   it is complete.
-- **Make the EcoTaxa tables.** It runs in the background like step 3. Zips already made are skipped, unless chosen.
+- **Make the EcoTaxa tables.** It runs in the background like step 4. Zips already made are skipped, unless chosen.
 - Before SeaSTAR, each feature file is checked: a `roi_number` column and one row per image. A bin that fails gets
   no zip and is listed with the reason: extract its features again. (SeaSTAR itself would make a zip without any
   feature: [issue #19](https://github.com/NOC-OI/seastar/issues/19).)
@@ -312,9 +312,9 @@ flowchart LR
     N["python create_project.py &lt;parent&gt;<br/>--serial --cruise-id --name"] --> A
     S["python project_status.py &lt;project&gt;<br/>(before each step)"] -.-> A
     A["Project folder<br/>with raw/"] --> R["2 · python make_figures.py<br/>python show_positions.py"]
-    R --> B["3 · python extract_features.py<br/>&lt;project&gt; --workers N"]
-    B --> C["4 · python make_metadata.py<br/>&lt;project&gt; &lt;spreadsheet&gt;<br/>then make_figures.py"]
-    C --> D["5 · python make_ecotaxa.py &lt;project&gt;<br/>--operator … --blobs"]
+    R --> C["3 · python make_metadata.py<br/>&lt;project&gt; &lt;spreadsheet&gt;<br/>then make_figures.py"]
+    C --> B["4 · python extract_features.py<br/>&lt;project&gt; --workers N"]
+    B --> D["5 · python make_ecotaxa.py &lt;project&gt;<br/>--operator … --blobs"]
     D --> E["ecotaxa_import_zip_seastar/*.zip"]
     F["Zips made earlier with<br/>seastar ifcb_to_ecotaxa"] --> G["python ecotaxa.py --blobs<br/>&lt;project&gt; &lt;zips&gt;"]
 ```
@@ -355,8 +355,8 @@ python make_figures.py Y:\ifcb_sn225_jc278_pap2025new
 - Saves the map and the figures as PNG in `figures/`, and the bins that look failed and the gaps in the sampling in
   `log/bins_check_<date>.txt`; prints the list.
 - Reads the `.adc` and `.hdr` of the bins not read yet (slow on Y:\; the feature extraction also reads them). Before
-  the metadata, it plots the concentration and the instrument values only; run it again after step 4 for the map
-  and the environmental values. Move the failed bins out of `raw/` before step 3.
+  the metadata, it plots the concentration and the instrument values only; run it again after step 3 for the map
+  and the environmental values. Move the failed bins out of `raw/` before step 4.
 - Writes `metadata/qc_bins.csv`, the result of the checks for the EcoTaxa tables (`sample_acq_qc_` columns, see the app
   protocol, step 2).
 - As in the app, each figure colours only the bins flagged for a reason it shows, with the reason in the legend (the
@@ -372,30 +372,7 @@ python show_positions.py Y:\ifcb_sn225_jc278_pap2025new D20250810T164958_IFCB225
 - ROI x against ROI y of every image of a bin, in `figures/positions_<bin>.png`. Without a bin: the 3 bins with the
   most cut images.
 
-### Features (step 3)
-
-```bash
-python extract_features.py Y:\ifcb_sn225_jc278_pap2025new --workers 14
-```
-
-- Skips the bins that already have a feature file; safe to run again after a stop. The bad bins of step 2 (`sample_acq_qc_flag` 4 in `metadata/qc_bins.csv`: incomplete run, images lost) are left out, unless `--include-bad` (in the app: the box *Include the bad bins*, unchecked by default).
-- One bin or one day at a time: `--bins D20250810T164958_IFCB225 D20250811` does only those bins (a day = all its
-  bins), even if they already have features: the new files replace the old ones. A name that is not in `raw/` stops
-  the script before anything is done, with the closest bin names.
-- Prints one line per bin and the failed bins at the end; the same lines go to `log/features_<date>.log`.
-
-### Images and their blobs
-
-```bash
-python show_blobs.py Y:\ifcb_sn225_jc278_pap2025new D20250810T164958_IFCB225 --seed 1
-```
-
-- Saves 12 images of the bin above their blob in `figures/blobs_<bin>_seed<seed>.png` and opens it. Check that each
-  blob covers the particle, not the background or a bubble.
-- Without a bin, shows the first bin with blobs and gives the range of bins. `--seed 2`, `3`… picks other images,
-  `--n 18` shows more. All images have the same scale, so their sizes can be compared.
-
-### Sample metadata (step 4)
+### Sample metadata (step 3)
 
 ```bash
 python make_metadata.py Y:\ifcb_sn225_jc278_pap2025new Y:\ifcb_sn225_jc278_pap2025new\metadata\jc278_metadata.xlsx --check-only
@@ -418,9 +395,32 @@ python make_metadata.py Y:\ifcb_sn225_jc278_pap2025new Y:\ifcb_sn225_jc278_pap20
 - Then run `python make_figures.py <project>` again: the map and the environmental values against time and
   depth, with the metadata points coloured.
 
+### Features (step 4)
+
+```bash
+python extract_features.py Y:\ifcb_sn225_jc278_pap2025new --workers 14
+```
+
+- Skips the bins that already have a feature file; safe to run again after a stop. The bad bins of step 2 (`sample_acq_qc_flag` 4 in `metadata/qc_bins.csv`: incomplete run, images lost) are left out, unless `--include-bad` (in the app: the box *Include the bad bins*, unchecked by default).
+- One bin or one day at a time: `--bins D20250810T164958_IFCB225 D20250811` does only those bins (a day = all its
+  bins), even if they already have features: the new files replace the old ones. A name that is not in `raw/` stops
+  the script before anything is done, with the closest bin names.
+- Prints one line per bin and the failed bins at the end; the same lines go to `log/features_<date>.log`.
+
+### Images and their blobs
+
+```bash
+python show_blobs.py Y:\ifcb_sn225_jc278_pap2025new D20250810T164958_IFCB225 --seed 1
+```
+
+- Saves 12 images of the bin above their blob in `figures/blobs_<bin>_seed<seed>.png` and opens it. Check that each
+  blob covers the particle, not the background or a bubble.
+- Without a bin, shows the first bin with blobs and gives the range of bins. `--seed 2`, `3`… picks other images,
+  `--n 18` shows more. All images have the same scale, so their sizes can be compared.
+
 ### EcoTaxa zips (step 5)
 
-After the metadata file (step 4):
+After the metadata file (step 3):
 
 ```bash
 python make_ecotaxa.py Y:\ifcb_sn225_jc278_pap2025new ^
@@ -491,13 +491,13 @@ files.
 
 | File | Written by | Content |
 |---|---|---|
-| `whoi_v4_V131_features/…` | step 3 | features, blobs, WHOI version per bin |
-| `log/features_<date>.log`, `log/features_status.json` | step 3 | each bin done or failed |
+| `whoi_v4_V131_features/…` | step 4 | features, blobs, WHOI version per bin |
+| `log/features_<date>.log`, `log/features_status.json` | step 4 | each bin done or failed |
 | `log/bin_stats.csv` | step 2 (or 3) | images, mL analysed and concentration per bin |
-| `metadata/metadata_ecotaxa.csv` / `.json` | step 4 | metadata with the EcoTaxa names, types and choices |
+| `metadata/metadata_ecotaxa.csv` / `.json` | step 3 | metadata with the EcoTaxa names, types and choices |
 | `metadata/qc_bins.csv` | step 2 | the result of the raw data check per bin, put in the EcoTaxa tables (`sample_acq_qc_` columns) |
-| `log/metadata_check_<date>.txt` | step 4 | the points to check, with their spreadsheet rows |
-| `figures/sample_qc_*.png`, `figures/acquisition_qc_*.png` | steps 2 and 4 | the sampling metadata figures (map, environmental values) and the acquisition figures (concentration, images per trigger, stream, cut images, humidity); the older `qc_*.png` are removed when they are made again |
+| `log/metadata_check_<date>.txt` | step 3 | the points to check, with their spreadsheet rows |
+| `figures/sample_qc_*.png`, `figures/acquisition_qc_*.png` | steps 2 and 3 | the sampling metadata figures (map, environmental values) and the acquisition figures (concentration, images per trigger, stream, cut images, humidity); the older `qc_*.png` are removed when they are made again |
 | `figures/blobs_<bin>_seed<n>.png` | `show_blobs.py` | images above their blobs |
 | `ecotaxa_import_zip_seastar/<NAME>_<bin>.zip` | step 5 | the files to import into EcoTaxa |
 | `log/ecotaxa_<date>.log`, `log/ecotaxa_settings.json` | step 5 | each zip done or failed, the names typed |
@@ -514,6 +514,6 @@ In EcoTaxa, `process_feature_extractor` (e.g. `whoi_v4_release131`) and `process
 | The page is slow or a button stays grey | The network drive is slow: wait for the first reading; then **Rescan the project** only when needed |
 | "WHOI ifcb-features is not installed" / "SeaSTAR is not installed" | Close the app and start it again from the shortcut: the launcher installs them (git is needed) |
 | The extraction or the zips stopped | Run again: what is done is skipped |
-| A bin failed in step 3 or 5 | Read its line in the log; often a damaged or incomplete bin: move it out of `raw/` |
+| A bin failed in step 4 or 5 | Read its line in the log; often a damaged or incomplete bin: move it out of `raw/` |
 | Wrong metadata in a zip already made | Correct the spreadsheet, write the metadata file again, delete that zip, make the tables again |
 | The figures are not saved | The page still works; `vl-convert` is missing: start the app again from the shortcut |

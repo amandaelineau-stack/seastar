@@ -1,4 +1,4 @@
-"""Quality check figures of a project (no UI code here): used by the pages of steps 2 and 4 and by make_figures.py."""
+"""Quality check figures of a project (no UI code here): used by the pages of steps 2 and 3 and by make_figures.py."""
 import hashlib
 import json
 from datetime import datetime
@@ -112,7 +112,7 @@ MAP_FIGURE = "sample_qc_map.png"
 
 def figure_name(column, against):
     """File name of a figure in figures/ (Amanda, 2026-11-24): sample_qc_… for the sampling metadata (columns sample_
-    and object_ of step 4), acquisition_qc_… for the values of the IFCB itself (concentration, images per trigger,
+    and object_ of step 3), acquisition_qc_… for the values of the IFCB itself (concentration, images per trigger,
     stream, cut images…). E.g. sample_qc_salinity_pss_time.png, acquisition_qc_rois_per_ml_time.png."""
     if column.startswith(("sample_", "object_")):
         return f"sample_qc_{column.removeprefix('sample_')}_{against}.png"

@@ -412,7 +412,7 @@ def qc_flag(row):
 
 
 def bad_bins(root):
-    """Bins flagged bad (sample_acq_qc_flag 4) in metadata/qc_bins.csv, sorted: not processed in steps 3 and 5 unless
+    """Bins flagged bad (sample_acq_qc_flag 4) in metadata/qc_bins.csv, sorted: not processed in steps 4 and 5 unless
     asked (--include-bad, or the box of the app). [] before the raw data check."""
     path = os.path.join(root, "metadata", QC_CSV)
     if not os.path.isfile(path):
@@ -627,7 +627,7 @@ def warnings(root, step):
                 out.append(f"The last {what} had {len(last['errors'])} failed bin(s): " + _some(last["errors"], 3))
     bad = set(bad_bins(root))
     if bad:
-        out.append(f"{len(bad)} bad bin(s) (flag 4 in metadata/{QC_CSV}) are not processed in steps 3 and 5, unless "
+        out.append(f"{len(bad)} bad bin(s) (flag 4 in metadata/{QC_CSV}) are not processed in steps 4 and 5, unless "
                    "asked (--include-bad, or the box of the app): " + _some(sorted(bad)))
     if step in ("ecotaxa", "all"):
         without = [b for b in bins_without_features(root) if b not in bad]
@@ -641,14 +641,14 @@ def warnings(root, step):
             with open(meta_csv, newline="", encoding="utf-8") as f:
                 rows = list(csv.DictReader(f))
             if rows and "sample_metadata_flag" not in rows[0]:
-                out.append("The metadata were saved before the metadata flags: save them again (step 4, "
+                out.append("The metadata were saved before the metadata flags: save them again (step 3, "
                            "make_metadata.py) to get sample_metadata_flag and sample_metadata_missing.")
             gaps = [r["bin"] for r in rows if r.get("sample_metadata_flag", "1") != "1"]
             added = sorted(set(complete_bins(root)) - {r["bin"] for r in rows})
             if gaps or added:
                 out.append(f"{len(gaps) + len(added)} bin(s) with missing or doubtful metadata get their EcoTaxa table "
                            "anyway, flagged (sample_metadata_flag 3 or 9, sample_metadata_missing): "
-                           + _some(gaps + added) + ". Correct the spreadsheet, save step 4 again, then make these "
+                           + _some(gaps + added) + ". Correct the spreadsheet, save step 3 again, then make these "
                            "bins again.")
         if not os.path.isfile(os.path.join(root, "metadata", QC_CSV)):
             out.append("No result of the raw data check yet (step 2, make_figures.py): the zips would have no "
@@ -659,7 +659,7 @@ def warnings(root, step):
         n = count_sample_columns(root)
         if n > SAMPLE_COLUMNS_MAX:
             out.append(f"The EcoTaxa tables would have up to {n} sample_ columns, EcoTaxa accepts {SAMPLE_COLUMNS_MAX}: "
-                       "leave some metadata fields out (step 4).")
+                       "leave some metadata fields out (step 3).")
         for name, script in (("metadata_check", "make_metadata.py"), ("bins_check", "make_figures.py")):
             report = last_report(root, name)
             if report is None:
@@ -719,13 +719,13 @@ def timeline(root):
 
     order = []
     for t, done, what in ((qc_t, qc, "the raw data check: open step 2 again"),
-                          (meta_t, meta, "the metadata were saved: save step 4 again")):
+                          (meta_t, meta, "the metadata were saved: save step 3 again")):
         added = [b for b in bins if b not in done]
         if t and added:
             order.append(f"{len(added)} bin(s) added after {what}: " + _some(added))
     if sheet_t and meta_t and sheet_t > meta_t:
         order.append(f"The spreadsheet {os.path.basename(sheet)} was changed ({_when(sheet_t)}) after the metadata "
-                     f"were saved ({_when(meta_t)}): save step 4 again, then make the EcoTaxa tables again.")
+                     f"were saved ({_when(meta_t)}): save step 3 again, then make the EcoTaxa tables again.")
     made = [b for b in bins if b in zips]
     for what, t_of in (("its feature file", feats.get), ("the metadata", lambda b: meta_t),
                        ("the raw data check", lambda b: qc_t)):

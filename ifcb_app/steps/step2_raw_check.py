@@ -145,4 +145,4 @@ if rois:
                f"(camera field {frame_right:.0f} px wide, the largest x + width of the cruise)")
 with st.expander("Table of the values"):
     st.dataframe(df, width="stretch", hide_index=True)
-st.page_link(common.STEP_PAGES[3], label="Next: 3 · Features", icon="➡️")
+st.page_link(common.STEP_PAGES[3], label="Next: 3 · Metadata", icon="➡️")
