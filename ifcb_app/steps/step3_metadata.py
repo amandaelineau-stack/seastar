@@ -93,21 +93,61 @@ if ok:
 
     fields = metadata.load_fields()
     old = saved.get("mapping", {}) if same_file else {}
-    table = pd.DataFrame([{
+    added = st.session_state.setdefault("added_sources", {})  # field added from this table -> its column
+    sources = {f["field"]: old.get(f["field"], {}).get("source", added.get(f["field"]) or metadata.guess_source(f, columns) or "") or ""
+               for f in fields}
+    new = metadata.new_columns(columns, rows, bin_column, set(sources.values()), fields)
+    TYPES = {"f": "number [f]", "t": "text [t]"}
+    proposed = [{"New?": "🟡 new column", **{k: v for k, v in zip(
+        ["Field", "EcoTaxa columns", "Type", "Unit"],
+        [p["field"], p["ecotaxa_column"], TYPES[p["type"]], p["unit"]])},
+        "From spreadsheet column": c, "If empty": "", "Add to the list": False}
+        for c in new for p in [metadata.propose_field(c, rows)]]
+    table = pd.DataFrame(proposed + [{
+        "New?": "",
         "Field": f["field"],
         "EcoTaxa columns": f["ecotaxa_columns"].replace(";", ", "),
-        "Type": "number [f]" if f["type"] == "f" else "text [t]",
+        "Type": TYPES[f["type"]],
         "Unit": f["unit"],
-        "From spreadsheet column": old.get(f["field"], {}).get("source", metadata.guess_source(f, columns) or "") or "",
+        "From spreadsheet column": sources[f["field"]],
         "If empty": old.get(f["field"], {}).get("default", f["default"]),
+        "Add to the list": None,
     } for f in fields])
+    if st.session_state.get("table_message"):
+        st.success(st.session_state.pop("table_message"))
+    if new:
+        st.info(f"**{len(new)} column(s) of the spreadsheet are not in the list of EcoTaxa columns** (yellow rows, at "
+                "the top): correct the proposed name, type and unit if needed, then tick **Add to the list**. Untick "
+                "rows are left out of the EcoTaxa tables.")
+    # only the columns that cannot be edited take a colour in st.data_editor: "New?" carries the yellow
+    styled = table.style.apply(lambda col: ["background-color: #fff3b0" if v else "" for v in col], subset=["New?"])
     edited = st.data_editor(
-        table, hide_index=True, width="stretch", key=f"mapping_{sheet_path}_{sheet}",
-        disabled=["Field", "EcoTaxa columns", "Type", "Unit"],
-        column_config={"From spreadsheet column": st.column_config.SelectboxColumn(options=[""] + columns),
-                       "If empty": st.column_config.TextColumn(help="Constant used when the spreadsheet has no value")})
-    mapping = {r["Field"]: {"source": r["From spreadsheet column"] or "", "default": str(r["If empty"] or "")}
-               for r in edited.to_dict("records")}
+        styled, hide_index=True, width="stretch", key=f"mapping_{sheet_path}_{sheet}_{len(fields)}",
+        disabled=["New?"],
+        column_config={"New?": st.column_config.TextColumn(width="small"),
+                       "Type": st.column_config.SelectboxColumn(options=list(TYPES.values())),
+                       "From spreadsheet column": st.column_config.SelectboxColumn(options=[""] + columns),
+                       "If empty": st.column_config.TextColumn(help="Constant used when the spreadsheet has no value"),
+                       "Add to the list": st.column_config.CheckboxColumn(
+                           help="Yellow rows only: adds this EcoTaxa column to the list shared by every project")})
+    records = edited.to_dict("records")
+    for r in records[:len(new)]:
+        if r["Add to the list"]:
+            try:
+                metadata.add_field(r["Field"] or "", r["EcoTaxa columns"] or "", "f" if r["Type"] == TYPES["f"] else "t",
+                                   r["Unit"] or "", str(r["If empty"] or ""), r["From spreadsheet column"] or "")
+            except ValueError as e:
+                st.error(f"{r['From spreadsheet column']}: {e}")
+            else:
+                added[r["Field"].strip().lower()] = r["From spreadsheet column"]
+                st.session_state["table_message"] = f"Added `{r['EcoTaxa columns']}` to the list of every project."
+                st.rerun()
+    shared = ["Field", "EcoTaxa columns", "Type", "Unit"]
+    if any(r[k] != t[k] for r, t in zip(records[len(new):], table.to_dict("records")[len(new):]) for k in shared):
+        st.info("Only the yellow rows can be renamed: the other fields are shared by every project "
+                f"(`{Path(metadata.FIELDS_CSV).name}` of the app); their changes are not used.")
+    mapping = {t["Field"]: {"source": r["From spreadsheet column"] or "", "default": str(r["If empty"] or "")}
+               for r, t in zip(records[len(new):], table.to_dict("records")[len(new):])}
 
     bins = common.complete_bins(str(folder))
     out_columns, out, problems = metadata.build(rows, bin_column, mapping, bins)
