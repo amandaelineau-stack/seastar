@@ -1,7 +1,7 @@
 """Step 3 on the command line: the sample spreadsheet -> metadata/metadata_ecotaxa.csv, with the checks.
 
     python make_metadata.py <project folder> [<spreadsheet>] [--sheet NAME] [--bin-column COLUMN]
-                            [--map FIELD=COLUMN ...] [--default FIELD=VALUE ...] [--add-field ...] [--check-only]
+                            [--map FIELD=COLUMN ...] [--default FIELD=VALUE ...] [--add-field ...] [--remove-field FIELD ...] [--check-only]
 
 Which spreadsheet column fills each field, in this order of priority:
   1. --map and --default given here;
@@ -12,6 +12,8 @@ log/metadata_check_<date>.txt. With --check-only nothing is written.
 
 A field that is not in the list yet: --add-field oxygen:sample_oxygen:f:umol/kg:0:500 --map oxygen="O2 (umol/kg)"
 adds it to metadata_columns.csv for every project (and the QC figures plot it if it is a number).
+A field added by mistake: --remove-field oxygen (latitude, longitude and depth cannot be removed). To correct a
+field, remove it and add it again, or edit metadata_columns.csv (the app checks the list in step 3).
 """
 import argparse
 import os
@@ -64,6 +66,8 @@ def main():
     parser.add_argument("--add-field", action="append", metavar="FIELD:COLUMN:TYPE[:UNIT[:MIN[:MAX[:DEFAULT[:DESCRIPTION]]]]]",
                         help="add a field to the list shared by every project (TYPE f = number, t = text), "
                              "e.g. oxygen:sample_oxygen:f:umol/kg:0:500; then --map it")
+    parser.add_argument("--remove-field", action="append", metavar="FIELD",
+                        help="remove a field from the list shared by every project")
     parser.add_argument("--check-only", action="store_true",
                         help="print the checks, write nothing (except the fields of --add-field)")
     args = parser.parse_args()
@@ -80,6 +84,12 @@ def main():
     bin_column = args.bin_column or (saved.get("bin_column") if same_file else None) or metadata.guess_bin_column(columns, rows)
     if bin_column not in columns:
         sys.exit(f"No column {bin_column!r} with the bin names. Columns: {', '.join(columns)}")
+    for name in args.remove_field or []:
+        try:
+            metadata.remove_field(name.strip().lower())
+        except ValueError as e:
+            sys.exit(f"--remove-field {name!r}: {e}")
+        print(f"Removed the field {name} from {metadata.FIELDS_CSV}.")
     for spec in args.add_field or []:
         add_field(spec)
     fields = {f["field"]: f for f in metadata.load_fields()}

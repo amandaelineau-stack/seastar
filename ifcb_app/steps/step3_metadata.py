@@ -122,7 +122,7 @@ if ok:
     # only the columns that cannot be edited take a colour in st.data_editor: "New?" carries the yellow
     styled = table.style.apply(lambda col: ["background-color: #fff3b0" if v else "" for v in col], subset=["New?"])
     edited = st.data_editor(
-        styled, hide_index=True, width="stretch", key=f"mapping_{sheet_path}_{sheet}_{len(fields)}",
+        styled, hide_index=True, width="stretch", key=f"mapping_{sheet_path}_{sheet}_{Path(metadata.FIELDS_CSV).stat().st_mtime}",
         disabled=["New?"],
         column_config={"New?": st.column_config.TextColumn(width="small"),
                        "Type": st.column_config.SelectboxColumn(options=list(TYPES.values())),
@@ -194,6 +194,24 @@ with st.expander("Add an EcoTaxa column to the list"):
     if st.session_state.get("nf_message"):
         kind, text = st.session_state.pop("nf_message")
         (st.error if kind == "error" else st.success)(text)
+
+with st.expander("Edit or remove EcoTaxa columns of the list"):
+    st.caption(f"The list shared by every project (`{Path(metadata.FIELDS_CSV).name}` of the app). Change a cell, or "
+               "select a row (box on its left) and press Delete to remove it, then **Save the list**. Several EcoTaxa "
+               "columns of one field are separated by `;`. A removed field is no longer proposed; metadata already "
+               "saved keep it until step 3 is saved again. Latitude, longitude and depth cannot be removed.")
+    list_mtime = Path(metadata.FIELDS_CSV).stat().st_mtime
+    list_edited = st.data_editor(pd.DataFrame(metadata.load_fields()), hide_index=True, width="stretch",
+                                 num_rows="dynamic", key=f"fields_list_{list_mtime}",
+                                 column_config={"type": st.column_config.SelectboxColumn(options=["f", "t"])})
+    if st.button("Save the list"):
+        try:
+            metadata.save_fields(list_edited.to_dict("records"))
+        except ValueError as e:
+            st.error("Nothing saved: " + str(e))
+        else:
+            st.session_state["table_message"] = "The list of EcoTaxa columns is saved."
+            st.rerun()
 
 # ---------------------------------------------------------------- figures of the metadata
 st.subheader("Sampling metadata: map, and each value against time and depth")

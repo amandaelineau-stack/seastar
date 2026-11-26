@@ -66,6 +66,20 @@ def test_add_field():
             assert False, bad
         except ValueError:
             pass
+    fields = metadata.remove_field("oxygen", path=path)  # added by mistake
+    assert len(fields) == n and not any(f["field"] == "oxygen" for f in metadata.load_fields(path))
+    edited = metadata.load_fields(path)
+    edited[0]["unit"] = "degrees N"  # corrected in the list
+    assert metadata.save_fields(edited, path)[0]["unit"] == "degrees N"
+    for bad in ([f for f in edited if f["field"] != "lat"],  # latitude is needed by the app
+                edited + [dict(edited[-1])],  # a field twice
+                [dict(f, min="low") if i == 0 else f for i, f in enumerate(edited)]):  # min not a number
+        before = open(path, encoding="utf-8").read()
+        try:
+            metadata.save_fields(bad, path)
+            assert False, "must refuse"
+        except ValueError:
+            assert open(path, encoding="utf-8").read() == before  # nothing written
     shutil.rmtree(tmp)
 
 
