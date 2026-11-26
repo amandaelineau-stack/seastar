@@ -109,6 +109,42 @@ def guess_source(field, columns):
     return min(same_word, key=lambda c: len(norm[c]), default=None)
 
 
+def new_columns(columns, rows, bin_column, used, fields=None):
+    """Spreadsheet columns that no field of the list uses or looks like, with at least one value: proposed as new
+    fields. `used`: the columns chosen as sources."""
+    fields = load_fields() if fields is None else fields
+    out = []
+    for c in columns:
+        if c == bin_column or c in used or not str(c).strip() or str(c).startswith("Unnamed"):
+            continue
+        if any(guess_source(f, [c]) for f in fields) or not any(as_text(r.get(c)) for r in rows):
+            continue
+        out.append(c)
+    return out
+
+
+def propose_field(column, rows):
+    """{field, ecotaxa_column, type, unit} proposed for a new spreadsheet column, e.g. 'Oxygen [umol/kg]' ->
+    oxygen, sample_oxygen, f, umol/kg. The type is f when every value is a number."""
+    unit = re.search(r"[\[(]([^\])]+)[\])]", column)
+    name = re.sub(r"[\[(][^\])]*[\])]", "", column)
+    field = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "new_field"
+    values = [as_text(r.get(column)) for r in rows]
+
+    def number(v):
+        try:
+            float(v)
+            return True
+        except ValueError:
+            return False
+    fields = load_fields()
+    taken = {c for f in fields for c in f["ecotaxa_columns"].split(";")} | set(BIN_COLUMNS) | set(FLAG_COLUMNS)
+    while "sample_" + field in taken or field in {f["field"] for f in fields}:  # e.g. 'time': sample_time is the analysis time
+        field += "_sheet"
+    return {"field": field, "ecotaxa_column": "sample_" + field,
+            "type": "f" if all(number(v) for v in values if v) else "t", "unit": unit.group(1).strip() if unit else ""}
+
+
 def build(rows, bin_column, mapping, bins):
     """One output row per bin of `bins`.
     rows: spreadsheet rows (dicts); mapping: {field name: {"source": column or "", "default": text}}.

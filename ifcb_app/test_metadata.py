@@ -93,8 +93,21 @@ def test_checks():
     shutil.rmtree(tmp)
 
 
+def test_new_columns():
+    rows = [{"bin": "D20250810T164958_IFCB225", "Latitude": "48.9", "Oxygen [umol/kg]": "250.5", "Ship note": "calm", "Empty": ""},
+            {"bin": "D20250810T170000_IFCB225", "Latitude": "49.0", "Oxygen [umol/kg]": "", "Ship note": "", "Empty": ""}]
+    columns = list(rows[0])
+    new = metadata.new_columns(columns, rows, "bin", {"Latitude"})
+    assert new == ["Oxygen [umol/kg]", "Ship note"], new  # Latitude used, Empty has no value
+    assert metadata.propose_field("Oxygen [umol/kg]", rows) == {"field": "oxygen", "ecotaxa_column": "sample_oxygen",
+                                                                "type": "f", "unit": "umol/kg"}
+    assert metadata.propose_field("Ship note", rows)["type"] == "t"
+    assert metadata.propose_field("time", [{"time": "12:00"}])["ecotaxa_column"] == "sample_time_sheet"  # sample_time is taken
+
+
 if __name__ == "__main__":
     test_build()
     test_checks()
     test_add_field()
+    test_new_columns()
     print("ok")

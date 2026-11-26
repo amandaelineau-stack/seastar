@@ -102,6 +102,14 @@ def main():
     for name, m in mapping.items():
         if m["source"] or m["default"]:
             print(f"{name:14s} {fields[name]['ecotaxa_columns'].replace(';', ', '):40s} {m['source'] or '-':24s} {m['default'] or '-'}")
+    new = metadata.new_columns(columns, rows, bin_column, {m["source"] for m in mapping.values()}, list(fields.values()))
+    if new:
+        print(f"\n{len(new)} column(s) of the spreadsheet are not in the list of EcoTaxa columns and are left out. "
+              "To add one, run again with (correct the name, type or unit if needed):")
+        for c in new:
+            p = metadata.propose_field(c, rows)
+            print(f"  --add-field {p['field']}:{p['ecotaxa_column']}:{p['type']}" + (f":{p['unit']}" if p["unit"] else "")
+                  + f' --map {p["field"]}="{c}"')
 
     out_columns, out, problems = metadata.build(rows, bin_column, mapping, project.complete_bins(root))
     counts = {}
