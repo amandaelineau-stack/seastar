@@ -264,14 +264,18 @@ st.caption("A point far from the others is often a typo. In each figure, only th
            "*Position jump* on the map). Hover a point: *to check* lists every reason of the bin. Bin-name typos and "
            "bins without metadata are in the table above only.")
 common.flag_map(df)
-st.caption("One row per variable: against the time the IFCB analysed the bin (left) and against depth (right).")
+st.caption("For each variable: against the time the IFCB analysed the bin, against depth (only when the depth varies: "
+           "not for an underway intake at a constant depth), and against longitude (west → east) and latitude "
+           "(south → north).")
 for c, title, by_depth in variables:
     if not by_depth:
         continue  # the instrument values are in step 2
-    left, right = st.columns(2)
-    left.altair_chart(figures[qc.figure_name(c, "time")][1], width="stretch")
-    if depth:
-        right.altair_chart(figures[qc.figure_name(c, "depth")][1], width="stretch")
+    shown = [figures[k][1] for a in ("time", "depth", "longitude", "latitude")
+             for k in [qc.figure_name(c, a)] if k in figures]
+    st.markdown(f"**{title}**")
+    for i in range(0, len(shown), 2):
+        for col, chart in zip(st.columns(2), shown[i:i + 2]):
+            col.altair_chart(chart, width="stretch")
 with st.expander("Table of the values plotted"):
     st.dataframe(df, width="stretch", hide_index=True)
 try:  # every figure of steps 2 and 3 as PNG in figures/, written again only when the data change
