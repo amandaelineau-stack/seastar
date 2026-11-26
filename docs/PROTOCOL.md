@@ -46,6 +46,31 @@ flowchart LR
 | 5 · EcoTaxa tables | What is still to check, then one zip per bin with images, blobs, features, metadata and versions | ✅ | `make_ecotaxa.py` |
 | Compare | Compares the column names and types of the EcoTaxa tables of several projects | ✅ | Python one-liner |
 
+### What each step writes and which step reads it
+
+```mermaid
+flowchart LR
+    S1["1 · Project<br/>folders"] --> RAW[("raw/<br/>.hdr .adc .roi")]
+    RAW --> S2["2 · Raw data check"]
+    S2 --> STATS[("log/bin_stats.csv<br/>images, volume")]
+    S2 --> QC[("metadata/qc_bins.csv<br/>QC flags, bad bins")]
+    SHEET[("Sample spreadsheet")] --> S3["3 · Sample metadata"]
+    RAW --> S3
+    STATS -->|"figures"| S3
+    S3 --> META[("metadata/metadata_ecotaxa.csv + .json<br/>values and their types")]
+    RAW --> S4["4 · Features"]
+    QC -->|"bad bins left out"| S4
+    S4 --> FEAT[("whoi_v4_V131_features/<br/>features, blobs, WHOI version")]
+    FEAT --> S5["5 · EcoTaxa tables"]
+    META -->|"sample_ and object_ columns"| S5
+    QC -->|"sample_acq_qc_ columns,<br/>bad bins left out"| S5
+    RAW -->|"images"| S5
+    S5 --> ZIP[("ecotaxa_import_zip_seastar/<br/>one zip per bin")]
+```
+
+When a file changes after a step that reads it, that step must be done again: for example, the EcoTaxa tables after
+the spreadsheet is corrected and step 3 saved again. Step 1 and *Current status* warn about it (*Order of the steps*).
+
 The raw data are checked before the features, so that no time is spent extracting bins that failed. The app and the
 scripts use the same code and write the same files, so a project can be started in one and finished in the other.
 On the command line nobody looks at the column choices of step 3 before they are used: the script prints them, so

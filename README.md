@@ -73,6 +73,31 @@ ifcb_sn<serial>_<cruise ID>_<name>/          e.g. ifcb_sn225_ce26008_ar7e
 | 5 · EcoTaxa tables | First what is still to check (warnings and flagged bins of steps 2 and 3). Then one zip per bin (`<cruise name>_<bin>.zip`, e.g. `pap2025new_D20250810T164958_IFCB225.zip`), made by `seastar ifcb_to_ecotaxa` in the background with the images, the features, the metadata of step 3 and the feature extractor version. Operator, checker, project, ship and cruise are typed once and remembered. A box, checked by default, adds the blob of each image as a second image of the object (`img_rank` 1). Bins that already have their zip are skipped, or you choose days and bins to make again. Each feature file is checked first (one row per image), because SeaSTAR would make a zip without features ([issue #19](https://github.com/NOC-OI/seastar/issues/19)). Still to add: a check of the column names and types of every table before the upload. | Done |
 | BODC · iFDO submission | For the British Oceanographic Data Centre, in `bodc/`: `refs/<bin>.json` per bin (a UUID, kept when made again, and the SHA-256 of its `.adc`, `.hdr` and `.roi`) and `bodc_ifdo_metadata_<project>.xlsx`, the iFDO template filled with the header of the project (edited and saved on the page) and one row per bin: date and time, json, latitude, longitude and altitude (minus the depth) of step 3, UUID and SHA-256 of the json. After `bodc_submission_generator.py` (A. Baldwin, NOC). Runs in the background; bins whose json is newer than their raw files are not read again; bad bins left out unless asked. | Done |
 
+### What each step writes and which step reads it
+
+```mermaid
+flowchart LR
+    S1["1 · Project<br/>folders"] --> RAW[("raw/<br/>.hdr .adc .roi")]
+    RAW --> S2["2 · Raw data check"]
+    S2 --> STATS[("log/bin_stats.csv<br/>images, volume")]
+    S2 --> QC[("metadata/qc_bins.csv<br/>QC flags, bad bins")]
+    SHEET[("Sample spreadsheet")] --> S3["3 · Sample metadata"]
+    RAW --> S3
+    STATS -->|"figures"| S3
+    S3 --> META[("metadata/metadata_ecotaxa.csv + .json<br/>values and their types")]
+    RAW --> S4["4 · Features"]
+    QC -->|"bad bins left out"| S4
+    S4 --> FEAT[("whoi_v4_V131_features/<br/>features, blobs, WHOI version")]
+    FEAT --> S5["5 · EcoTaxa tables"]
+    META -->|"sample_ and object_ columns"| S5
+    QC -->|"sample_acq_qc_ columns,<br/>bad bins left out"| S5
+    RAW -->|"images"| S5
+    S5 --> ZIP[("ecotaxa_import_zip_seastar/<br/>one zip per bin")]
+```
+
+When a file changes after a step that reads it, that step must be done again: for example, the EcoTaxa tables after
+the spreadsheet is corrected and step 3 saved again. Step 1 and *Current status* warn about it (*Order of the steps*).
+
 In every figure of steps 2 and 3, only the bins flagged for a reason that figure shows are coloured, and the legend names the reason. The figures are saved as PNG in `figures/`: `sample_qc_*.png` for the sampling metadata of step 3 (map, salinity, temperature…), `acquisition_qc_*.png` for the values of the IFCB itself (concentration, images per trigger, stream of particles, cut images, humidity).
 
 **Compare EcoTaxa tables** compares the tables of several projects (row 1, the column names; row 2, the types `[f]`/`[t]`) and gives the differences as a text report you can download. It reads only the first two rows of each table and is run only when you ask.
