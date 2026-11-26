@@ -193,11 +193,13 @@ def flag_map(df):
                      reasons=pos["to check"].fillna("") if "to check" in pos.columns else "",
                      top=(pos["status"] != "nothing to report").astype(int)).sort_values("top")  # flagged on top
     span = max(pos["lon"].max() - pos["lon"].min(), pos["lat"].max() - pos["lat"].min(), 0.05)
-    view = pdk.ViewState(latitude=float(pos["lat"].mean()), longitude=float(pos["lon"].mean()),
-                         zoom=max(1, min(12, math.log2(360 / span) - 0.5)))
+    view = pdk.ViewState(latitude=float((pos["lat"].min() + pos["lat"].max()) / 2),
+                         longitude=float((pos["lon"].min() + pos["lon"].max()) / 2),
+                         zoom=max(1, min(12, math.log2(360 / span))))
+    # radius in metres, held between 3 and 6 pixels whatever the zoom ("pixels" units were ignored: huge discs)
     layer = pdk.Layer("ScatterplotLayer", pos[["bin", "lat", "lon", "status", "reasons", "color"]],
-                      get_position=["lon", "lat"], get_fill_color="color", get_radius=5, radius_units="pixels",
-                      pickable=True, opacity=0.85)
+                      get_position=["lon", "lat"], get_fill_color="color", get_radius=1,
+                      radiusMinPixels=3, radiusMaxPixels=6, pickable=True, opacity=0.9)
     st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view, map_style=None,
                              tooltip={"html": "<b>{bin}</b><br/>{status}<br/>lat {lat}, lon {lon}<br/>{reasons}"}))
     st.caption(" · ".join(f"{s}: {n}" for s, n in counts.items()) + ". 🔴 bad run of the raw data check (flag 4) · "
