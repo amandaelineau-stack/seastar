@@ -274,7 +274,9 @@ def bathymetry(lon0, lon1, lat0, lat1):
         return pd.DataFrame(columns=["lon", "lat", "depth", "line", "order"])
 
 
-MAP_ASPECT, MAP_HEIGHT = 2.0, 330  # width / height of the track maps, drawn about 660 pixels wide (half the page)
+# Track maps drawn at a fixed size (st.altair_chart width="content"): stretched to the column they lost their proportions
+MAP_ASPECT, MAP_HEIGHT = 2.0, 350
+MAP_WIDTH = int(MAP_ASPECT * MAP_HEIGHT)
 
 
 def track_axes(lon, lat, aspect=MAP_ASPECT):
@@ -343,7 +345,7 @@ def flag_chart(df, height=MAP_HEIGHT):
                         legend=alt.Legend(orient="top")),
         order=alt.Order("top:Q"),
         tooltip=["bin", alt.Tooltip("time:T", format="%Y-%m-%d %H:%M"), "object_lat", "object_lon", "status", "to check"])
-    return zoomable(alt.layer(*background, points).properties(height=height))
+    return zoomable(alt.layer(*background, points).properties(width=int(MAP_ASPECT * height), height=height))
 
 
 MAP_FIGURE = "sample_qc_map.png"
@@ -411,7 +413,7 @@ def charts(df, variables, depth):
                                 legend=alt.Legend(orient="right", gradientLength=200)),
                 tooltip=tooltip + ["object_lat", "object_lon", c])
             figures[figure_name(c, "map")] = (f"{title} along the track",
-                                              zoomable(alt.layer(*background, points).properties(height=MAP_HEIGHT)))
+                                              zoomable(alt.layer(*background, points).properties(width=MAP_WIDTH, height=MAP_HEIGHT)))
     return figures
 
 
