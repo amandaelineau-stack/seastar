@@ -63,11 +63,62 @@ def add_field(field, ecotaxa_column, type_, unit="", default="", description="",
             float(bound)  # ValueError if the bound is not a number
     fields.append(dict(zip(FIELD_KEYS, [field, ecotaxa_column, type_, unit.strip(), default.strip(),
                                         min_.strip(), max_.strip(), description.strip()])))
+    return save_fields(fields, path)
+
+
+# The app needs these columns (map, position jumps, BODC, depth): they cannot be removed from the list.
+REQUIRED_COLUMNS = {"object_lat", "object_lon", "sample_depth_min"}
+
+
+def save_fields(fields, path=FIELDS_CSV):
+    """Check the whole list (edited in step 3, or after add_field / remove_field) and write it. Raises ValueError with
+    every problem found; nothing is written then. Returns the list as written."""
+    clean, problems, seen_fields, seen_columns = [], [], set(), set(BIN_COLUMNS) | set(FLAG_COLUMNS)
+    for i, f in enumerate(fields, 1):
+        f = {k: str(f.get(k) or "").strip() for k in FIELD_KEYS}
+        f["field"] = f["field"].lower()
+        f["ecotaxa_columns"] = ";".join(c.strip().lower() for c in re.split(r"[;,]", f["ecotaxa_columns"]) if c.strip())
+        name = f["field"] or f"row {i}"
+        if not re.fullmatch(r"[a-z0-9_]+", f["field"]):
+            problems.append(f"{name}: the field name may only have lower-case letters, digits and _")
+        elif f["field"] in seen_fields:
+            problems.append(f"{name}: the field is twice in the list")
+        seen_fields.add(f["field"])
+        if not f["ecotaxa_columns"]:
+            problems.append(f"{name}: no EcoTaxa column")
+        for c in f["ecotaxa_columns"].split(";") if f["ecotaxa_columns"] else []:
+            if not COLUMN_RE.fullmatch(c):
+                problems.append(f"{name}: {c} must start with sample_, object_, acq_ or process_, followed by "
+                                "lower-case letters, digits and _")
+            elif c in seen_columns:
+                problems.append(f"{name}: the EcoTaxa column {c} is already used")
+            seen_columns.add(c)
+        if f["type"] not in ("f", "t"):
+            problems.append(f"{name}: the type must be f (number) or t (text)")
+        for bound in ("min", "max"):
+            try:
+                float(f[bound] or 0)
+            except ValueError:
+                problems.append(f"{name}: the {bound} must be a number")
+        clean.append(f)
+    missing = REQUIRED_COLUMNS - seen_columns
+    if missing:
+        problems.append("These columns are needed by the app and cannot be removed: " + ", ".join(sorted(missing)))
+    if problems:
+        raise ValueError("; ".join(problems))
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, FIELD_KEYS)
         w.writeheader()
-        w.writerows(fields)
-    return fields
+        w.writerows(clean)
+    return clean
+
+
+def remove_field(field, path=FIELDS_CSV):
+    """Remove a field from the list shared by every project. Returns the new list."""
+    fields = load_fields(path)
+    if not any(f["field"] == field for f in fields):
+        raise ValueError(f"No field {field} in the list")
+    return save_fields([f for f in fields if f["field"] != field], path)
 
 
 def as_text(v):

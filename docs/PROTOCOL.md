@@ -216,6 +216,8 @@ other pages; each page shows it at the top, with a **Rescan** button.
    A spreadsheet column that no field uses or looks like is shown first, in a yellow row, with a proposed EcoTaxa
    name (`sample_…`), type and unit: correct them if needed and tick **Add to the list** to add the field for every
    project; unticked, the column is left out. `make_metadata.py` prints the same columns with a ready `--add-field` line.
+   A field added by mistake, or to correct: **Edit or remove EcoTaxa columns of the list** (below the table), then
+   **Save the list**; on the command line `--remove-field FIELD`.
 3. Read the **points to check** (also in `log/metadata_check_<date>.txt` once written). They do not stop the EcoTaxa
    tables: every bin gets its row, and two columns say how complete it is, `sample_metadata_flag` (1 every field
    filled, 3 a value out of range, 9 a value missing or the bin not in the spreadsheet; IODE scale, as the QC) and
