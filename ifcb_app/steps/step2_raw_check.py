@@ -99,6 +99,18 @@ would look good). The NOC IFCB QC procedure, in development, will add more.
 - The other values (images, volume, humidity, position and width of the stream, cut images) are given without a
   flag, and the ROI x / ROI y plot below shows the flow of each bin.""")
 
+st.subheader("Map of the bins")
+saved_meta = common.metadata_rows(folder)
+if saved_meta:
+    pos, counts = qc.flag_points(saved_meta, {r["bin"]: r["sample_acq_qc_flag"] for r in rows})
+    if len(pos):
+        st.map(pos, latitude="lat", longitude="lon", color="color", size=400)
+    st.caption(" · ".join(f"{s}: {n}" for s, n in counts.items()) + ". Red: bad bins of this check (flag 4); orange: "
+               "metadata missing or out of range (step 3). Positions from the metadata saved in step 3: the IFCB "
+               "records none, so a bin without metadata cannot be placed.")
+else:
+    st.info("The IFCB records no position: the map of the bins appears once the metadata are saved (step 3).")
+
 df, variables, _ = qc.frame(stats, None, bin_problems)
 figures = qc.charts(df, variables, None)
 HOW_TO_READ = ("Each point is a bin, against the time the IFCB analysed it. Only the bins flagged for a reason the figure "

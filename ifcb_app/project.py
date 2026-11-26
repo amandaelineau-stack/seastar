@@ -411,14 +411,19 @@ def qc_flag(row):
     return row.get("sample_acq_qc_flag") or row.get("sample_qc_flag") or row.get("acq_qc_flag")
 
 
+def qc_flags(root):
+    """{bin: worst flag as text} of metadata/qc_bins.csv; {} before the raw data check."""
+    path = os.path.join(root, "metadata", QC_CSV)
+    if not os.path.isfile(path):
+        return {}
+    with open(path, newline="", encoding="utf-8") as f:
+        return {r["bin"]: qc_flag(r) for r in csv.DictReader(f)}
+
+
 def bad_bins(root):
     """Bins flagged bad (sample_acq_qc_flag 4) in metadata/qc_bins.csv, sorted: not processed in steps 4 and 5 unless
     asked (--include-bad, or the box of the app). [] before the raw data check."""
-    path = os.path.join(root, "metadata", QC_CSV)
-    if not os.path.isfile(path):
-        return []
-    with open(path, newline="", encoding="utf-8") as f:
-        return sorted(r["bin"] for r in csv.DictReader(f) if qc_flag(r) == str(4))
+    return sorted(b for b, flag in qc_flags(root).items() if flag == str(4))
 
 
 def skip_bad(root, bins, include_bad):
