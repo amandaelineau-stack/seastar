@@ -81,96 +81,106 @@ if ok:
 
     fields = metadata.load_fields()
     old = saved.get("mapping", {}) if same_file else {}
-    # field -> column ("" = left out), from the boxes "Use" and the column choices of this table: one column per field
+    # The choices made in the three tables below, per spreadsheet, until the metadata are saved:
+    # field -> column ("" = left out; one column per field) and field -> value if empty
     chosen = st.session_state.setdefault("chosen_sources", {}).setdefault(str(sheet_path), {})
+    chosen_defaults = st.session_state.setdefault("chosen_defaults", {}).setdefault(str(sheet_path), {})
     sources = {f["field"]: chosen[f["field"]] if f["field"] in chosen else
                old.get(f["field"], {}).get("source", metadata.guess_source(f, columns) or "") or "" for f in fields}
+    defaults = {f["field"]: chosen_defaults.get(f["field"], old.get(f["field"], {}).get("default", f["default"])) for f in fields}
     new = metadata.new_columns(columns, rows, bin_column, set(sources.values()))
     TYPES = {"f": "number [f]", "t": "text [t]"}
-
-    def unused_status(p):
-        if not p["existing"]:
-            return "🟡 unused · new field"
-        now = sources.get(p["field"])
-        return f"🟡 unused · could replace {now}" if now else "🟡 unused · could fill " + p["ecotaxa_column"].split(";")[0]
-
-    proposed = [{"Status": unused_status(p), **{k: v for k, v in zip(
-        ["Field", "EcoTaxa columns", "Type", "Unit"],
-        [p["field"], p["ecotaxa_column"].replace(";", ", "), TYPES[p["type"]], p["unit"]])},
-        "From spreadsheet column": c, "If empty": "", "Use": False}
-        for c in new for p in [metadata.propose_field(c, rows, fields)]]
-    defaults = {f["field"]: old.get(f["field"], {}).get("default", f["default"]) for f in fields}
-    table = pd.DataFrame(proposed + [{
-        "Status": "✅ used" if sources[f["field"]] else (f"⬜ if empty: {defaults[f['field']]}" if defaults[f["field"]] else "⬜ empty"),
-        "Field": f["field"],
-        "EcoTaxa columns": f["ecotaxa_columns"].replace(";", ", "),
-        "Type": TYPES[f["type"]],
-        "Unit": f["unit"],
-        "From spreadsheet column": sources[f["field"]],
-        "If empty": defaults[f["field"]],
-        "Use": bool(sources[f["field"]]),
-    } for f in fields])
+    state = hash((tuple(new), tuple(sources.items()), tuple(defaults.items()), Path(metadata.FIELDS_CSV).stat().st_mtime))
+    YELLOW = "background-color: #fff3b0"
     if st.session_state.get("table_message"):
         st.success(st.session_state.pop("table_message"))
+
+    # ---- 1. columns of the spreadsheet not used yet: map them, then validate
+    st.markdown(f"**1 · Columns of the spreadsheet not used yet ({len(new)})**")
     if new:
-        st.info(f"**{len(new)} column(s) of the spreadsheet are not used** (yellow rows, at the top), so they are not "
-                "in the EcoTaxa tables. For each, the closest field of the list is proposed first (e.g. `sal_corrected` "
-                "→ `sample_salinity_pss`): tick **Use** and it fills that field instead of the column used now. Otherwise a new field "
-                "is proposed: correct its name, type and unit if needed, then tick **Use** to add it to the list. "
-                "One column per field: untick **Use** on a row to leave its column out.")
-    # only the columns that cannot be edited take a colour in st.data_editor: "Status" carries the yellow
-    styled = table.style.apply(lambda col: ["background-color: #fff3b0" if v.startswith("🟡") else "" for v in col],
-                               subset=["Status"])
-    edited = st.data_editor(  # the key changes with the rows: older edits would land on other rows
-        styled, hide_index=True, width="stretch",
-        key=f"mapping_{sheet_path}_{sheet}_{Path(metadata.FIELDS_CSV).stat().st_mtime}_{hash((tuple(new), tuple(sources.items())))}",
-        disabled=["Status"],  # "Field" (the name in the list) is kept in the data but not shown
-        column_order=["Status", "From spreadsheet column", "EcoTaxa columns", "Type", "Unit", "If empty", "Use"],
-        column_config={"Status": st.column_config.TextColumn(width="medium"),
-                       "Type": st.column_config.SelectboxColumn(options=list(TYPES.values())),
-                       "From spreadsheet column": st.column_config.SelectboxColumn(options=[""] + columns),
-                       "If empty": st.column_config.TextColumn(help="Constant used when the spreadsheet has no value"),
-                       "Use": st.column_config.CheckboxColumn(
-                           help="Ticked: this column fills the field in the EcoTaxa tables. On a yellow row, a new field "
-                                "is first added to the list shared by every project")})
-    records, before = edited.to_dict("records"), table.to_dict("records")
-    for r in records[:len(new)]:
-        if not r["Use"]:
-            continue
-        column = r["From spreadsheet column"]
-        cols = ";".join(c.strip().lower() for c in re.split(r"[;,]", r["EcoTaxa columns"] or "") if c.strip())
-        same = [f["field"] for f in fields if f["ecotaxa_columns"] == cols]
-        name = same[0] if same else cols.split(";")[0].split("_", 1)[-1]  # a new field is named after its column
-        if same:  # a field of the list: only its source changes
-            st.session_state["table_message"] = (f"`{column}` now fills `{cols.replace(';', '`, `')}`"
-                                                 + (f"; `{sources[name]}` is left out" if sources[name] else "")
-                                                 + ". Save the metadata to keep it.")
-        else:
-            try:
-                metadata.add_field(name, cols, "f" if r["Type"] == TYPES["f"] else "t", r["Unit"] or "",
-                                   str(r["If empty"] or ""), column or "")
-            except ValueError as e:
-                st.error(f"{column}: {e}")
-                continue
-            st.session_state["table_message"] = f"Added `{cols}` to the list of every project, filled by `{column}`."
-        chosen[name] = column
-        st.rerun()
-    for r, b in zip(records[len(new):], before[len(new):]):
-        name, column = b["Field"], r["From spreadsheet column"] or ""
-        if b["Use"] and not r["Use"]:  # unticked: the column is left out of the EcoTaxa tables
-            chosen[name] = ""
-            st.session_state["table_message"] = (f"`{b['From spreadsheet column']}` is left out of the EcoTaxa tables. "
-                                                 "Save the metadata to keep it.")
+        st.caption("Not in the EcoTaxa tables for now. For each column the closest field of the list is proposed first "
+                   "(e.g. `sal_corrected` → `sample_salinity_pss`, in place of the column it uses now); otherwise a new "
+                   "EcoTaxa column (`sample_…`): correct its name, type and unit if needed. Tick **Use**, then "
+                   "**Use the ticked columns**. Unticked columns stay out of the EcoTaxa tables.")
+        proposals = [metadata.propose_field(c, rows, fields) for c in new]
+        unused = pd.DataFrame([{
+            "Spreadsheet column": c,
+            "EcoTaxa columns": p["ecotaxa_column"].replace(";", ", "),
+            "Proposed": (f"in the list, instead of {sources[p['field']]}" if sources.get(p["field"]) else "in the list")
+                        if p["existing"] else "new EcoTaxa column",
+            "Type": TYPES[p["type"]], "Unit": p["unit"], "Use": False} for c, p in zip(new, proposals)])
+        with st.form(f"unused_{state}"):
+            got = st.data_editor(unused.style.apply(lambda col: [YELLOW] * len(col), subset=["Spreadsheet column", "Proposed"]),
+                                 hide_index=True, width="stretch", disabled=["Spreadsheet column", "Proposed"], key="unused_table",
+                                 column_config={"Type": st.column_config.SelectboxColumn(options=list(TYPES.values())),
+                                                "Use": st.column_config.CheckboxColumn(help="This column fills these EcoTaxa columns")})
+            if st.form_submit_button("Use the ticked columns", type="primary"):
+                done, errors = [], []
+                for r in got.to_dict("records"):
+                    if not r["Use"]:
+                        continue
+                    column = r["Spreadsheet column"]
+                    cols = ";".join(c.strip().lower() for c in re.split(r"[;,]", r["EcoTaxa columns"] or "") if c.strip())
+                    same = [f["field"] for f in fields if f["ecotaxa_columns"] == cols]
+                    if same:  # a field of the list: only its column changes (the one before goes to table 1)
+                        name = same[0]
+                    else:
+                        name = cols.split(";")[0].split("_", 1)[-1]  # a new field is named after its column
+                        try:
+                            metadata.add_field(name, cols, "f" if r["Type"] == TYPES["f"] else "t", r["Unit"] or "",
+                                               description=column)
+                        except ValueError as e:
+                            errors.append(f"`{column}`: {e}")
+                            continue
+                    chosen[name] = column
+                    done.append(f"`{column}` → `{cols.replace(';', '`, `')}`")
+                message = ("Used: " + "; ".join(done) + ". Save the metadata to keep it." if done else "")
+                if errors:
+                    message += " Not used: " + "; ".join(errors)
+                st.session_state["table_message"] = message or "No column ticked."
+                st.rerun()
+    else:
+        st.caption("Every column of the spreadsheet is used (or holds the bin names).")
+
+    # ---- 2. columns used: check them, then validate
+    used = [f for f in fields if sources[f["field"]]]
+    st.markdown(f"**2 · Columns of the spreadsheet used ({len(used)})**: check them")
+    st.caption("Each column fills these EcoTaxa columns. Choose another column if it is not the right one, untick "
+               "**Use** to leave it out (it goes back to table 1), then **Apply the changes**.")
+    used_table = pd.DataFrame([{
+        "Spreadsheet column": sources[f["field"]], "EcoTaxa columns": f["ecotaxa_columns"].replace(";", ", "),
+        "Type": TYPES[f["type"]], "Unit": f["unit"], "If empty": defaults[f["field"]], "Use": True} for f in used],
+        columns=["Spreadsheet column", "EcoTaxa columns", "Type", "Unit", "If empty", "Use"])
+    with st.form(f"used_{state}"):
+        got = st.data_editor(used_table, hide_index=True, width="stretch", disabled=["EcoTaxa columns", "Type", "Unit"], key="used_table",
+                             column_config={"Spreadsheet column": st.column_config.SelectboxColumn(options=columns),
+                                            "If empty": st.column_config.TextColumn(help="Used when the spreadsheet has no value")})
+        if st.form_submit_button("Apply the changes"):
+            for f, r in zip(used, got.to_dict("records")):
+                chosen[f["field"]] = (r["Spreadsheet column"] or "") if r["Use"] else ""
+                chosen_defaults[f["field"]] = str(r["If empty"] or "")
+            st.session_state["table_message"] = "Changes applied. Save the metadata to keep them."
             st.rerun()
-        if column != b["From spreadsheet column"]:  # another column chosen: the one before becomes a yellow row
-            chosen[name] = column
+
+    # ---- 3. fields of the list without a column in this spreadsheet: for information
+    missing = [f for f in fields if not sources[f["field"]]]
+    st.markdown(f"**3 · EcoTaxa columns of the list not in this spreadsheet ({len(missing)})**: for information")
+    st.caption("They get the value **If empty** for every bin (e.g. 5 m for the depth of the underway intake), or stay "
+               "empty. To add or remove EcoTaxa columns: **Edit the list** below.")
+    missing_table = pd.DataFrame([{
+        "EcoTaxa columns": f["ecotaxa_columns"].replace(";", ", "), "Type": TYPES[f["type"]], "Unit": f["unit"],
+        "Description": f["description"], "If empty": defaults[f["field"]]} for f in missing],
+        columns=["EcoTaxa columns", "Type", "Unit", "Description", "If empty"])
+    with st.form(f"missing_{state}"):
+        got = st.data_editor(missing_table, hide_index=True, width="stretch", key="missing_table",
+                             disabled=["EcoTaxa columns", "Type", "Unit", "Description"])
+        if st.form_submit_button("Apply the values if empty"):
+            for f, r in zip(missing, got.to_dict("records")):
+                chosen_defaults[f["field"]] = str(r["If empty"] or "")
+            st.session_state["table_message"] = "Values if empty applied. Save the metadata to keep them."
             st.rerun()
-    shared = ["EcoTaxa columns", "Type", "Unit"]
-    if any(r[k] != b[k] for r, b in zip(records[len(new):], before[len(new):]) for k in shared):
-        st.info("Only the yellow rows can be renamed: the other fields are shared by every project "
-                "(**Edit the list** below); their changes here are not used.")
-    mapping = {b["Field"]: {"source": sources[b["Field"]], "default": str(r["If empty"] or "")}
-               for r, b in zip(records[len(new):], before[len(new):])}
+
+    mapping = {f["field"]: {"source": sources[f["field"]], "default": defaults[f["field"]]} for f in fields}
 
     bins = common.complete_bins(str(folder))
     out_columns, out, problems = metadata.build(rows, bin_column, mapping, bins)
