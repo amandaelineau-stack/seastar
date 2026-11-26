@@ -162,26 +162,53 @@ def guess_source(field, columns):
     return min(same_word, key=lambda c: len(norm[c]), default=None)
 
 
-def new_columns(columns, rows, bin_column, used, fields=None):
-    """Spreadsheet columns that no field of the list uses or looks like, with at least one value: proposed as new
-    fields. `used`: the columns chosen as sources."""
+def new_columns(columns, rows, bin_column, used):
+    """Spreadsheet columns with at least one value that no field uses (`used`: the columns chosen as sources): shown
+    first in step 3 with propose_field, e.g. sal_corrected while salinity takes the column 'salinity'."""
+    return [c for c in columns if c != bin_column and c not in used and str(c).strip()
+            and not str(c).startswith("Unnamed") and any(as_text(r.get(c)) for r in rows)]
+
+
+# Words that say how a value was processed, not what it is: sal_corrected is a salinity, temp_ctd a temperature
+GENERIC_WORDS = {"corrected", "corr", "cor", "raw", "qc", "final", "adj", "adjusted", "calibrated", "cal",
+                 "mean", "avg", "value", "val", "sample", "insitu", "sensor", "new", "old"}
+
+
+def words(name):
+    """The meaningful words of a column name: 'Sal_corrected [PSS]' -> ['sal']."""
+    name = re.sub(r"[\[(][^\])]*[\])]", "", str(name)).lower()
+    return [w for w in re.split(r"[^a-z0-9]+", name) if w and w not in GENERIC_WORDS and not w.isdigit()]
+
+
+def closest_field(column, fields):
+    """The field of the list whose name looks most like the column, or None. Each word of the column counts for the
+    letters it shares with a word of the field when one is the start of the other (at least 3 letters, or the same
+    short word such as id or max): sal_corrected -> salinity, depth_max_corrected -> depth_max, ctd_id -> ctd_id."""
+    best, score = None, 0
+    for f in fields:
+        names = [f["field"]] + [c.split("_", 1)[1] for c in f["ecotaxa_columns"].split(";")]
+        fwords = {w for n in names for w in n.split("_") if w}
+        s = 0
+        for w in words(column):
+            s += max([min(len(w), len(fw)) for fw in fwords
+                      if (w == fw and len(w) >= 2) or (min(len(w), len(fw)) >= 3 and (fw.startswith(w) or w.startswith(fw)))],
+                     default=0)
+        if s > score:
+            best, score = f, s
+    return best
+
+
+def propose_field(column, rows, fields=None):
+    """What a spreadsheet column not used yet could be: first the closest field of the list (existing True, e.g.
+    sal_corrected -> salinity, sample_salinity_pss), else a new field (existing False, e.g. 'Oxygen [umol/kg]' ->
+    oxygen, sample_oxygen, f, umol/kg; the type is f when every value is a number)."""
     fields = load_fields() if fields is None else fields
-    out = []
-    for c in columns:
-        if c == bin_column or c in used or not str(c).strip() or str(c).startswith("Unnamed"):
-            continue
-        if any(guess_source(f, [c]) for f in fields) or not any(as_text(r.get(c)) for r in rows):
-            continue
-        out.append(c)
-    return out
-
-
-def propose_field(column, rows):
-    """{field, ecotaxa_column, type, unit} proposed for a new spreadsheet column, e.g. 'Oxygen [umol/kg]' ->
-    oxygen, sample_oxygen, f, umol/kg. The type is f when every value is a number."""
+    match = closest_field(column, fields)
+    if match:
+        return {"field": match["field"], "ecotaxa_column": match["ecotaxa_columns"], "type": match["type"],
+                "unit": match["unit"], "existing": True}
     unit = re.search(r"[\[(]([^\])]+)[\])]", column)
-    name = re.sub(r"[\[(][^\])]*[\])]", "", column)
-    field = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "new_field"
+    field = "_".join(words(column)) or re.sub(r"[^a-z0-9]+", "_", str(column).lower()).strip("_") or "new_field"
     values = [as_text(r.get(column)) for r in rows]
 
     def number(v):
@@ -190,12 +217,11 @@ def propose_field(column, rows):
             return True
         except ValueError:
             return False
-    fields = load_fields()
     taken = {c for f in fields for c in f["ecotaxa_columns"].split(";")} | set(BIN_COLUMNS) | set(FLAG_COLUMNS)
-    while "sample_" + field in taken or field in {f["field"] for f in fields}:  # e.g. 'time': sample_time is the analysis time
+    while "sample_" + field in taken or field in {f["field"] for f in fields}:  # sample_time is the analysis time
         field += "_sheet"
-    return {"field": field, "ecotaxa_column": "sample_" + field,
-            "type": "f" if all(number(v) for v in values if v) else "t", "unit": unit.group(1).strip() if unit else ""}
+    return {"field": field, "ecotaxa_column": "sample_" + field, "type": "f" if all(number(v) for v in values if v) else "t",
+            "unit": unit.group(1).strip() if unit else "", "existing": False}
 
 
 def build(rows, bin_column, mapping, bins):
