@@ -220,7 +220,11 @@ other pages; each page shows it at the top, with a **Rescan** button.
      **Use** to leave a column out (it goes back to table 1) → **Apply the changes**. One column per field.
    - **3 · EcoTaxa columns of the list not in this spreadsheet**, for information: they get **If empty** for every
      bin (5 m for the depth of the underway intake) → **Apply the values if empty**.
-   `make_metadata.py` prints the unused columns with a ready `--map` (or `--add-field`) line. `make_metadata.py` prints the same columns with a ready `--map` (or
+   `make_metadata.py` prints the unused columns with a ready `--map` (or `--add-field`) line.
+
+   **Niskin or in situ**: a bin whose spreadsheet row has no Niskin or CTD value (Niskin date, time, bottle, CTD
+   cast) is an in situ sample (underway intake): `sample_sampling_type` = `in situ`, and its Niskin and CTD columns
+   are `not applicable` (not counted as missing). Otherwise `niskin`. Empty for a bin not in the spreadsheet. `make_metadata.py` prints the same columns with a ready `--map` (or
    `--add-field`) line.
    A field added by mistake, or to correct: see **Edit the list** below.
 3. Read the **points to check** (also in `log/metadata_check_<date>.txt` once written). They do not stop the EcoTaxa

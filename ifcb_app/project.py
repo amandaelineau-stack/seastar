@@ -646,6 +646,10 @@ def warnings(root, step):
             elif rows and "object_lat" in rows[0] and "sample_lat" not in rows[0]:  # sample_lat/lon added 2026-11-26
                 out.append("The metadata were saved before sample_lat and sample_lon (required by EcoTaxa) were added: "
                            "save them again (step 3, make_metadata.py), then make the EcoTaxa tables again.")
+            elif rows and "sample_sampling_type" not in rows[0]:  # added 2026-11-26
+                out.append("The metadata were saved before sample_sampling_type (niskin / in situ, Niskin fields 'not "
+                           "applicable' for in situ samples): save them again (step 3, make_metadata.py), then make the "
+                           "EcoTaxa tables again.")
             gaps = [r["bin"] for r in rows if r.get("sample_metadata_flag", "1") != "1"]
             added = sorted(set(complete_bins(root)) - {r["bin"] for r in rows})
             if gaps or added:
