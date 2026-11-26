@@ -277,6 +277,8 @@ for c, title in TOP_MAPS:
         st.altair_chart(figures[key][1], width="content")
     else:
         st.info("No value or no position for this variable.")
+if qc.BATHY_ERROR:
+    st.caption(f":orange[The isobaths could not be drawn ({qc.BATHY_ERROR['reason']}); tried again next time.]")
 
 st.markdown("#### Quality flags")
 _, counts = qc.position_map(df)
