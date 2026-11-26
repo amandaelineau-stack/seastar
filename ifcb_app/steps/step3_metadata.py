@@ -92,7 +92,7 @@ if ok:
         if not p["existing"]:
             return "🟡 unused · new field"
         now = sources.get(p["field"])
-        return f"🟡 unused · could fill {p['field']}" + (f" instead of {now}" if now else "")
+        return f"🟡 unused · could replace {now}" if now else "🟡 unused · could fill " + p["ecotaxa_column"].split(";")[0]
 
     proposed = [{"Status": unused_status(p), **{k: v for k, v in zip(
         ["Field", "EcoTaxa columns", "Type", "Unit"],
@@ -115,7 +115,7 @@ if ok:
     if new:
         st.info(f"**{len(new)} column(s) of the spreadsheet are not used** (yellow rows, at the top), so they are not "
                 "in the EcoTaxa tables. For each, the closest field of the list is proposed first (e.g. `sal_corrected` "
-                "→ salinity): tick **Use** and it fills that field instead of the column used now. Otherwise a new field "
+                "→ `sample_salinity_pss`): tick **Use** and it fills that field instead of the column used now. Otherwise a new field "
                 "is proposed: correct its name, type and unit if needed, then tick **Use** to add it to the list. "
                 "One column per field: untick **Use** on a row to leave its column out.")
     # only the columns that cannot be edited take a colour in st.data_editor: "Status" carries the yellow
@@ -124,7 +124,8 @@ if ok:
     edited = st.data_editor(  # the key changes with the rows: older edits would land on other rows
         styled, hide_index=True, width="stretch",
         key=f"mapping_{sheet_path}_{sheet}_{Path(metadata.FIELDS_CSV).stat().st_mtime}_{hash((tuple(new), tuple(sources.items())))}",
-        disabled=["Status"],
+        disabled=["Status"],  # "Field" (the name in the list) is kept in the data but not shown
+        column_order=["Status", "From spreadsheet column", "EcoTaxa columns", "Type", "Unit", "If empty", "Use"],
         column_config={"Status": st.column_config.TextColumn(width="medium"),
                        "Type": st.column_config.SelectboxColumn(options=list(TYPES.values())),
                        "From spreadsheet column": st.column_config.SelectboxColumn(options=[""] + columns),
@@ -133,14 +134,16 @@ if ok:
                            help="Ticked: this column fills the field in the EcoTaxa tables. On a yellow row, a new field "
                                 "is first added to the list shared by every project")})
     records, before = edited.to_dict("records"), table.to_dict("records")
-    by_name = {f["field"]: f for f in fields}
     for r in records[:len(new)]:
         if not r["Use"]:
             continue
-        name, column = (r["Field"] or "").strip().lower(), r["From spreadsheet column"]
-        cols = ";".join(c.strip() for c in re.split(r"[;,]", r["EcoTaxa columns"] or "") if c.strip())
-        if name in by_name and cols == by_name[name]["ecotaxa_columns"]:  # a field of the list: only its source changes
-            st.session_state["table_message"] = (f"`{column}` now fills {name}" + (f"; `{sources[name]}` is left out" if sources[name] else "")
+        column = r["From spreadsheet column"]
+        cols = ";".join(c.strip().lower() for c in re.split(r"[;,]", r["EcoTaxa columns"] or "") if c.strip())
+        same = [f["field"] for f in fields if f["ecotaxa_columns"] == cols]
+        name = same[0] if same else cols.split(";")[0].split("_", 1)[-1]  # a new field is named after its column
+        if same:  # a field of the list: only its source changes
+            st.session_state["table_message"] = (f"`{column}` now fills `{cols.replace(';', '`, `')}`"
+                                                 + (f"; `{sources[name]}` is left out" if sources[name] else "")
                                                  + ". Save the metadata to keep it.")
         else:
             try:
@@ -156,12 +159,13 @@ if ok:
         name, column = b["Field"], r["From spreadsheet column"] or ""
         if b["Use"] and not r["Use"]:  # unticked: the column is left out of the EcoTaxa tables
             chosen[name] = ""
-            st.session_state["table_message"] = f"`{b['From spreadsheet column']}` no longer fills {name}. Save the metadata to keep it."
+            st.session_state["table_message"] = (f"`{b['From spreadsheet column']}` is left out of the EcoTaxa tables. "
+                                                 "Save the metadata to keep it.")
             st.rerun()
         if column != b["From spreadsheet column"]:  # another column chosen: the one before becomes a yellow row
             chosen[name] = column
             st.rerun()
-    shared = ["Field", "EcoTaxa columns", "Type", "Unit"]
+    shared = ["EcoTaxa columns", "Type", "Unit"]
     if any(r[k] != b[k] for r, b in zip(records[len(new):], before[len(new):]) for k in shared):
         st.info("Only the yellow rows can be renamed: the other fields are shared by every project "
                 "(**Edit the list** below); their changes here are not used.")
