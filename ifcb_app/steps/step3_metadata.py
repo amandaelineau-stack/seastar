@@ -269,25 +269,25 @@ text_col.caption("The globe shows where the cruise is (red frame). On the maps, 
                  "coloured by its value (violet low, yellow high). Dark grey: the coast (Natural Earth 1:50m); blue: "
                  "the isobaths 200, 1000, 2000 and 4000 m, with their depth (NOAA ETOPO1; not drawn offline). "
                  "Shift + mouse wheel to zoom, drag to move, double-click to reset; hover a point for its values.")
-for col, (c, title) in zip(st.columns(2), TOP_MAPS):
-    col.markdown(f"**{title}**")
+# One map per row: at their fixed size (true proportions) two side by side overflowed a laptop screen
+for c, title in TOP_MAPS:
+    st.markdown(f"**{title}**")
     key = qc.figure_name(c, "map")
     if key in figures:
-        col.altair_chart(figures[key][1], width="content")
+        st.altair_chart(figures[key][1], width="content")
     else:
-        col.info("No value or no position for this variable.")
+        st.info("No value or no position for this variable.")
 
 st.markdown("#### Quality flags")
 _, counts = qc.position_map(df)
-left, right = st.columns(2)
 flags = qc.flag_chart(df)
 if flags is not None:
-    left.altair_chart(flags, width="content")
-right.markdown("\n".join(f"- **{s}**: {n} bin{'s' if n > 1 else ''}" for s, n in counts.items()))
-right.caption("🔴 bad run of the raw data check (step 2, flag 4) · 🟠 metadata missing or out of range "
-              "(`sample_metadata_flag` 9 or 3), or a position to check · 🔵 nothing to report. Hover a point for its "
-              "reasons. Bin-name typos and bins without metadata are in the tables above only. The positions are the "
-              "columns chosen above (e.g. lat_corrected): the IFCB records none.")
+    st.altair_chart(flags, width="content")
+st.markdown(" · ".join(f"**{s}**: {n} bin{'s' if n > 1 else ''}" for s, n in counts.items()))
+st.caption("🔴 bad run of the raw data check (step 2, flag 4) · 🟠 metadata missing or out of range "
+           "(`sample_metadata_flag` 9 or 3), or a position to check · 🔵 nothing to report. Hover a point for its "
+           "reasons. Bin-name typos and bins without metadata are in the tables above only. The positions are the "
+           "columns chosen above (e.g. lat_corrected): the IFCB records none.")
 
 st.markdown("#### Each variable")
 st.caption("Against the time the IFCB analysed the bin, against depth (only when the depth varies: not for an underway "
@@ -301,9 +301,13 @@ for c, title, by_depth in variables:
     kinds = ("time", "depth", "longitude", "latitude") + (() if c in on_top else ("map",))  # no map twice
     shown = [(a, figures[k][1]) for a in kinds for k in [qc.figure_name(c, a)] if k in figures]
     st.markdown(f"##### {title}")
-    for i in range(0, len(shown), 2):
-        for col, (kind, chart) in zip(st.columns(2), shown[i:i + 2]):
-            col.altair_chart(chart, width="content" if kind == "map" else "stretch")  # a map keeps its proportions
+    plots = [chart for kind, chart in shown if kind != "map"]
+    for i in range(0, len(plots), 2):
+        for col, chart in zip(st.columns(2), plots[i:i + 2]):
+            col.altair_chart(chart, width="stretch")
+    for kind, chart in shown:
+        if kind == "map":
+            st.altair_chart(chart, width="content")  # its own row, at its fixed size (true proportions)
 with st.expander("Table of the values plotted"):
     st.dataframe(df, width="stretch", hide_index=True)
 try:  # every figure of steps 2 and 3 as PNG in figures/, written again only when the data change
