@@ -224,6 +224,17 @@ def propose_field(column, rows, fields=None):
             "unit": unit.group(1).strip() if unit else "", "existing": False}
 
 
+def competing_columns(unused, rows, fields, sources):
+    """{field: [the column used, then the unused columns that look like the same field]}, e.g. lat: ['latitude',
+    'lat_corrected']: one spreadsheet with two latitudes, only one goes to EcoTaxa. sources: {field: column used}."""
+    out = {}
+    for c in unused:
+        p = propose_field(c, rows, fields)
+        if p["existing"] and sources.get(p["field"]):
+            out.setdefault(p["field"], [sources[p["field"]]]).append(c)
+    return out
+
+
 def build(rows, bin_column, mapping, bins):
     """One output row per bin of `bins`.
     rows: spreadsheet rows (dicts); mapping: {field name: {"source": column or "", "default": text}}.

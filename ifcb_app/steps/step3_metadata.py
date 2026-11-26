@@ -96,6 +96,14 @@ if ok:
         st.success(st.session_state.pop("table_message"))
 
     # ---- 1. columns of the spreadsheet not used yet: map them, then validate
+    competing = metadata.competing_columns(new, rows, fields, sources)
+    if competing:
+        by = {g["field"]: g["ecotaxa_columns"] for g in fields}
+        st.warning("**Several columns of the spreadsheet for the same EcoTaxa column**: only one goes to the EcoTaxa "
+                   "tables. Check that the one used is the right one (e.g. the corrected values), else tick the other "
+                   "in table 1.\n" + "\n".join(
+                       f"- `{by[f].replace(';', '`, `')}`: **{cols[0]}** used; also " + ", ".join(f"`{c}`" for c in cols[1:])
+                       for f, cols in competing.items()))
     st.markdown(f"**1 · Columns of the spreadsheet not used yet ({len(new)})**")
     if new:
         st.caption("Not in the EcoTaxa tables for now. For each column the closest field of the list is proposed first "

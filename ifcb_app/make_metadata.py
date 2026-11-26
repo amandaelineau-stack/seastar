@@ -113,6 +113,11 @@ def main():
         if m["source"] or m["default"]:
             print(f"{name:14s} {fields[name]['ecotaxa_columns'].replace(';', ', '):40s} {m['source'] or '-':24s} {m['default'] or '-'}")
     new = metadata.new_columns(columns, rows, bin_column, {m["source"] for m in mapping.values()})
+    competing = metadata.competing_columns(new, rows, list(fields.values()), {k: m["source"] for k, m in mapping.items()})
+    for name, cols in competing.items():
+        print(f"\nWARNING: several columns for {fields[name]['ecotaxa_columns'].replace(';', ', ')}: {cols[0]!r} is used, "
+              f"also {', '.join(repr(c) for c in cols[1:])}. Check it is the right one (e.g. the corrected values), "
+              f"else --map {name}=\"<column>\".")
     if new:
         print(f"\n{len(new)} column(s) of the spreadsheet are not used. To use one, run again with (the closest field "
               "of the list first, else a new field: correct its name, type or unit if needed):")
