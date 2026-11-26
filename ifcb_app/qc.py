@@ -198,6 +198,28 @@ def position_map(df, width=900, height=460):
     return chart, counts
 
 
+def flag_chart(df, height=260):
+    """The bins by longitude and latitude, coloured by map_status (red bad run, orange metadata to check, blue nothing
+    to report), the reasons on hover; zoomable. None without positions."""
+    import altair as alt
+    if not {"object_lat", "object_lon"} <= set(df.columns):
+        return None
+    d = df.assign(status=map_status(df)).dropna(subset=["object_lat", "object_lon"])
+    if d.empty:
+        return None
+    present = [(s, c) for s, c in STATUSES if (d["status"] == s).any()]
+    cols = [c for c in ("bin", "time", "object_lat", "object_lon", "status", "to check") if c in d.columns]
+    return zoomable(alt.Chart(d[cols].assign(top=(d["status"] != "nothing to report").astype(int))).mark_circle(
+        size=40, opacity=0.85).encode(
+        x=alt.X("object_lon:Q", title="Longitude (degrees E)", scale=alt.Scale(zero=False, padding=12)),
+        y=alt.Y("object_lat:Q", title="Latitude (degrees N)", scale=alt.Scale(zero=False, padding=12)),
+        color=alt.Color("status:N", title=None, scale=alt.Scale(domain=[s for s, _ in present], range=[c for _, c in present]),
+                        legend=alt.Legend(orient="top")),
+        order=alt.Order("top:Q"),
+        tooltip=["bin", alt.Tooltip("time:T", format="%Y-%m-%d %H:%M"), "object_lat", "object_lon", "status", "to check"])
+        .properties(height=height))
+
+
 MAP_FIGURE = "sample_qc_map.png"
 
 
@@ -255,7 +277,9 @@ def charts(df, variables, depth):
                 alt.Chart(d.sort_values(c)).mark_circle(size=45, opacity=0.9).encode(
                     x=alt.X("object_lon:Q", title="Longitude (degrees E)", scale=alt.Scale(zero=False, padding=12)),
                     y=alt.Y("object_lat:Q", title="Latitude (degrees N)", scale=alt.Scale(zero=False, padding=12)),
-                    color=alt.Color(f"{c}:Q", title=title, scale=alt.Scale(scheme="viridis"),
+                    # title on two lines (name, then unit); a log scale for the concentration, very skewed
+                    color=alt.Color(f"{c}:Q", title=[t.strip(") ") for t in title.split(" (")],
+                                    scale=alt.Scale(scheme="viridis", type="log" if c == "rois_per_ml" else "linear"),
                                     legend=alt.Legend(orient="right", gradientLength=200)),
                     tooltip=tooltip + ["object_lat", "object_lon", c]).properties(height=260)))
     return figures

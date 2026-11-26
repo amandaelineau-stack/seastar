@@ -244,7 +244,7 @@ with st.expander("✏️ Edit the list of EcoTaxa columns"):
             st.rerun()
 
 # ---------------------------------------------------------------- figures of the metadata
-st.subheader("Sampling metadata: map, and each value against time and depth")
+st.subheader("Sampling metadata: maps and figures")
 st.caption("These values become the `sample_…` and `object_lat` / `object_lon` (also `sample_lat` / `sample_lon`) / `object_depth_…` columns of the EcoTaxa "
            "tables (step 5); the checks of this step are summed up in `sample_metadata_flag` and "
            "`sample_metadata_missing`.")
@@ -259,20 +259,42 @@ if not stats:
 bin_problems = project.check_bins(stats, metadata.bin_time)
 df, variables, depth = qc.frame(stats, meta_rows, meta_problems + bin_problems)
 figures = qc.charts(df, variables, depth)
-st.caption("A point far from the others is often a typo. In each figure, only the bins flagged for a reason that "
-           "figure shows are coloured, and the legend names the reason (e.g. *Out of range* in the salinity, "
-           "*Position jump* on the map). Hover a point: *to check* lists every reason of the bin. Bin-name typos and "
-           "bins without metadata are in the table above only.")
-common.flag_map(df)
-st.caption("For each variable: against the time the IFCB analysed the bin, against depth (only when the depth varies: "
-           "not for an underway intake at a constant depth), and against longitude (west → east) and latitude "
-           "(south → north).")
+TOP_MAPS = [("rois_per_ml", "Particle concentration (images mL⁻¹)"), ("sample_chla_mg_m3", "Chlorophyll a (mg m⁻³)")]
+st.markdown("#### Maps along the track")
+st.caption("Each point is a bin at its position, coloured by its value (violet low, yellow high). Shift + mouse wheel "
+           "to zoom, drag to move, double-click to reset; hover a point for its values.")
+for col, (c, title) in zip(st.columns(2), TOP_MAPS):
+    col.markdown(f"**{title}**")
+    key = qc.figure_name(c, "map")
+    if key in figures:
+        col.altair_chart(figures[key][1].properties(height=380), width="stretch")
+    else:
+        col.info("No value or no position for this variable.")
+
+st.markdown("#### Quality flags")
+_, counts = qc.position_map(df)
+left, right = st.columns([3, 2])
+flags = qc.flag_chart(df)
+if flags is not None:
+    left.altair_chart(flags, width="stretch")
+right.markdown("\n".join(f"- **{s}**: {n} bin{'s' if n > 1 else ''}" for s, n in counts.items()))
+right.caption("🔴 bad run of the raw data check (step 2, flag 4) · 🟠 metadata missing or out of range "
+              "(`sample_metadata_flag` 9 or 3), or a position to check · 🔵 nothing to report. Hover a point for its "
+              "reasons. Bin-name typos and bins without metadata are in the tables above only. The positions are the "
+              "columns chosen above (e.g. lat_corrected): the IFCB records none.")
+
+st.markdown("#### Each variable")
+st.caption("Against the time the IFCB analysed the bin, against depth (only when the depth varies: not for an underway "
+           "intake at a constant depth), against longitude (west → east) and latitude (south → north), and along the "
+           "track. A point far from the others is often a typo; only the bins flagged for a reason the figure shows "
+           "are coloured, and the legend names the reason.")
+on_top = {c for c, _ in TOP_MAPS}
 for c, title, by_depth in variables:
     if not by_depth:
         continue  # the instrument values are in step 2
-    shown = [figures[k][1] for a in ("time", "depth", "longitude", "latitude", "map")
-             for k in [qc.figure_name(c, a)] if k in figures]
-    st.markdown(f"**{title}**")
+    kinds = ("time", "depth", "longitude", "latitude") + (() if c in on_top else ("map",))  # no map twice
+    shown = [figures[k][1] for a in kinds for k in [qc.figure_name(c, a)] if k in figures]
+    st.markdown(f"##### {title}")
     for i in range(0, len(shown), 2):
         for col, chart in zip(st.columns(2), shown[i:i + 2]):
             col.altair_chart(chart, width="stretch")
