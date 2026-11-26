@@ -75,7 +75,9 @@ def save_fields(fields, path=FIELDS_CSV):
     every problem found; nothing is written then. Returns the list as written."""
     clean, problems, seen_fields, seen_columns = [], [], set(), set(BIN_COLUMNS) | set(FLAG_COLUMNS)
     for i, f in enumerate(fields, 1):
-        f = {k: str(f.get(k) or "").strip() for k in FIELD_KEYS}
+        f = {k: as_text(f.get(k)) for k in FIELD_KEYS}  # a row added in the app has None or NaN
+        if not any(f.values()):
+            continue  # an empty row added and left empty
         f["field"] = f["field"].lower()
         f["ecotaxa_columns"] = ";".join(c.strip().lower() for c in re.split(r"[;,]", f["ecotaxa_columns"]) if c.strip())
         name = f["field"] or f"row {i}"

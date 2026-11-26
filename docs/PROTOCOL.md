@@ -216,8 +216,7 @@ other pages; each page shows it at the top, with a **Rescan** button.
    A spreadsheet column that no field uses or looks like is shown first, in a yellow row, with a proposed EcoTaxa
    name (`sample_…`), type and unit: correct them if needed and tick **Add to the list** to add the field for every
    project; unticked, the column is left out. `make_metadata.py` prints the same columns with a ready `--add-field` line.
-   A field added by mistake, or to correct: **Edit or remove EcoTaxa columns of the list** (below the table), then
-   **Save the list**; on the command line `--remove-field FIELD`.
+   A field added by mistake, or to correct: see **Edit the list** below.
 3. Read the **points to check** (also in `log/metadata_check_<date>.txt` once written). They do not stop the EcoTaxa
    tables: every bin gets its row, and two columns say how complete it is, `sample_metadata_flag` (1 every field
    filled, 3 a value out of range, 9 a value missing or the bin not in the spreadsheet; IODE scale, as the QC) and
@@ -246,10 +245,11 @@ Rules applied to every cruise:
   `object_depth_min/max`.
 - `object_date/time` and `sample_date/time`: the time the IFCB analysed the bin (from its name). The Niskin
   sampling time goes to `sample_niskin_date/time`. Dates and times are always text `[t]`.
-- A measurement not in the list: **Add an EcoTaxa column to the list** (name starting with `sample_`, type,
-  unit, expected range). It stays available for the next projects.
+- **✏️ Edit the list of EcoTaxa columns** (below the table): **+** adds a field (name starting with `sample_`, type,
+  unit, expected range), the bin deletes the selected rows, a double-click changes a cell; then **Save the list**.
+  The list is checked first and is shared by every project. On the command line: `--add-field`, `--remove-field`.
 
-Then, on the same page, **Map and figures**: the map, and the particle concentration and every numeric field against
+Then, on the same page, **Sampling metadata: map, and each value against time and depth**: the map, and the particle concentration and every numeric field against
 time and depth. As in step 2, a point is coloured only in the figures that show its problem, with the reason in the
 legend (e.g. *Out of range* in the salinity, *Position jump* on the map). A point far from the others is often a typo.
 The figures of steps 2 and 3 are saved in `figures/` automatically.
