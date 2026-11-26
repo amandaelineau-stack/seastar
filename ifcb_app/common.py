@@ -174,9 +174,14 @@ def saved_metadata_problems(root):
 
 
 def flag_map(df):
-    """The map of steps 2 and 3 on a real background map (st.map: zoom with the mouse wheel), one point per bin coloured
-    by qc.map_status (red bad run, orange metadata to check, blue nothing to report); then a line with the numbers of
-    bins. The PNG of figures/ is qc.position_map (a fixed map). A pydeck map with tooltips drew huge discs (2026-11-26)."""
+    """The map of steps 2 and 3 on a real background map (zoom with the mouse wheel), one point per bin coloured by
+    qc.map_status (red bad run, orange metadata to check, blue nothing to report), the reasons on hover; then a line
+    with the numbers of bins. The PNG of figures/ is qc.position_map (a fixed map).
+    The map is the JSON of st.map (a pydeck layer of our own drew huge discs, 2026-11-26), made pickable and given the
+    bin, status and reasons, inside a pydeck Deck that carries the tooltip: st.pydeck_chart only calls its to_json()."""
+    import pydeck as pdk
+    from streamlit.elements import map as st_map
+
     import qc
     _, counts = qc.position_map(df)  # the numbers, with the bins without a position
     if not {"object_lat", "object_lon"} <= set(df.columns):
@@ -184,16 +189,24 @@ def flag_map(df):
     pos = df.assign(status=qc.map_status(df)).dropna(subset=["object_lat", "object_lon"])
     if pos.empty:
         return
-    colours = dict(qc.STATUSES)
-    pos = pos.assign(color=pos["status"].map(colours), top=(pos["status"] != "nothing to report").astype(int))
-    pos = pos.sort_values("top")  # flagged bins drawn last, on top
-    span_km = 111 * max(pos["object_lon"].max() - pos["object_lon"].min(), pos["object_lat"].max() - pos["object_lat"].min(), 0.01)
-    st.map(pos[["object_lat", "object_lon", "color"]], latitude="object_lat", longitude="object_lon", color="color",
-           size=span_km * 1000 / 250)  # metres: a point is about 1/250 of the cruise wide (at least 3 pixels)
+    rgb = {s: [int(c[i:i + 2], 16) for i in (1, 3, 5)] + [255] for s, c in qc.STATUSES}
+    pos = pos.assign(lat=pos["object_lat"].round(4), lon=pos["object_lon"].round(4), color=pos["status"].map(rgb),
+                     reasons=pos["to check"].fillna("") if "to check" in pos.columns else "",
+                     top=(pos["status"] != "nothing to report").astype(int)).sort_values("top")  # flagged on top
+    span_km = 111 * max(pos["lon"].max() - pos["lon"].min(), pos["lat"].max() - pos["lat"].min(), 0.01)
+    # metres: a point is about 1/250 of the cruise wide (st.map keeps at least 3 pixels)
+    spec = json.loads(st_map.to_deckgl_json(pos[["lat", "lon"]].assign(color="#000000"), "lat", "lon",
+                                            span_km * 1000 / 250, "color", None))
+    layer = spec["layers"][0]
+    layer["data"] = pos[["bin", "lat", "lon", "status", "reasons", "color"]].to_dict("records")
+    layer["getFillColor"], layer["pickable"] = "@@=color", True
+    deck = pdk.Deck(tooltip={"html": "<b>{bin}</b><br/>{status}<br/>lat {lat}, lon {lon}<br/>{reasons}"})
+    deck.to_json = lambda: json.dumps(spec)
+    st.pydeck_chart(deck)
     st.caption(" · ".join(f"{s}: {n}" for s, n in counts.items()) + ". 🔴 bad run of the raw data check (flag 4) · "
                "🟠 metadata missing or out of range (`sample_metadata_flag` 9 or 3), or a position to check · 🔵 nothing "
-               "to report. Mouse wheel to zoom, drag to move; the reasons of each bin are in the tables above. The "
-               "positions come from the metadata of step 3 (the columns chosen there, e.g. lat_corrected): the IFCB records none.")
+               "to report. Mouse wheel to zoom, drag to move, hover a point for its reasons. The positions come from "
+               "the metadata of step 3 (the columns chosen there, e.g. lat_corrected): the IFCB records none.")
 
 
 def flagged_bins(root):
