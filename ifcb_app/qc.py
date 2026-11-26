@@ -286,7 +286,7 @@ def track_axes(lon, lat, aspect=MAP_ASPECT):
     high: without it the coast was squeezed (Cornwall looked like Brittany)."""
     import altair as alt
     lon0, lon1, lat0, lat1 = lon.min(), lon.max(), lat.min(), lat.max()
-    pad = max(0.1, 0.05 * max(lon1 - lon0, lat1 - lat0))
+    pad = max(0.3, 0.12 * max(lon1 - lon0, lat1 - lat0))  # room around the track, to see the coasts nearby
     lon0, lon1, lat0, lat1 = lon0 - pad, lon1 + pad, lat0 - pad, lat1 + pad
     km_lon = math.cos(math.radians((lat0 + lat1) / 2))  # a degree of longitude, in degrees of latitude
     need_lon = aspect * (lat1 - lat0) / km_lon  # the longitudes the frame shows for this latitude range
@@ -301,7 +301,7 @@ def track_axes(lon, lat, aspect=MAP_ASPECT):
     span = max(lon1 - lon0, lat1 - lat0)
     box = (lon0 - span / 4, lon1 + span / 4, lat0 - span / 4, lat1 + span / 4)  # a margin for zooming out a little
     coast = clip_lines(coastline(), "ring", box, 2500)
-    layers = [alt.Chart(coast).mark_line(color="#5a6b74", strokeWidth=1.2, clip=True).encode(
+    layers = [alt.Chart(coast).mark_line(color="#3d4a52", strokeWidth=1.5, clip=True).encode(
         x=x, y=y, detail="piece:N", order="order:Q")]
     bathy = clip_lines(bathymetry(lon0 - span / 2, lon1 + span / 2, lat0 - span / 2, lat1 + span / 2), "line", box, 2000)
     if len(bathy):
@@ -309,7 +309,46 @@ def track_axes(lon, lat, aspect=MAP_ASPECT):
             x=x, y=y, detail="piece:N", order="order:Q",
             opacity=alt.Opacity("depth:O", legend=None, scale=alt.Scale(range=[0.95, 0.5])),
             tooltip=[alt.Tooltip("depth:Q", title="isobath (m)")]))
+        # a label on the two longest pieces of each isobath shown, at their middle point
+        frame = bathy[bathy["lon"].between(lon0, lon1) & bathy["lat"].between(lat0, lat1)]
+        longest = frame.groupby(["depth", "piece"]).size().reset_index(name="n").sort_values("n", ascending=False)
+        longest = longest[longest["n"] >= 8].groupby("depth").head(2)
+        labels = pd.DataFrame([g.iloc[len(g) // 2] for _, g in frame.merge(longest, on=["depth", "piece"])
+                               .groupby("piece")]) if len(longest) else pd.DataFrame()
+        if len(labels):
+            layers.insert(1, alt.Chart(labels.assign(label=labels["depth"].astype(int).astype(str) + " m"))
+                          .mark_text(color="#3f7fa6", fontSize=10, fontWeight="bold", clip=True,
+                                     stroke="white", strokeWidth=3, strokeOpacity=0.9)
+                          .encode(x=x, y=y, text="label:N"))
+            layers.insert(2, alt.Chart(labels.assign(label=labels["depth"].astype(int).astype(str) + " m"))
+                          .mark_text(color="#3f7fa6", fontSize=10, fontWeight="bold", clip=True)
+                          .encode(x=x, y=y, text="label:N"))
     return x, y, layers
+
+
+@functools.lru_cache(maxsize=1)
+def world_topology():
+    with open(WORLD, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def locator_globe(lon, lat, size=180):
+    """A small globe centred on the cruise, with its area framed in red: where the maps are on Earth."""
+    import altair as alt
+    lon0, lon1, lat0, lat1 = float(lon.min()), float(lon.max()), float(lat.min()), float(lat.max())
+    m = max(1.0, 0.1 * max(lon1 - lon0, lat1 - lat0))  # a frame of at least a few degrees, visible on the globe
+    lon0, lon1, lat0, lat1 = lon0 - m, lon1 + m, max(lat0 - m, -89), min(lat1 + m, 89)
+    projection = dict(type="orthographic", rotate=[-(lon0 + lon1) / 2, -(lat0 + lat1) / 2, 0])
+    # clockwise ring: d3 would otherwise take the outside of the frame, the whole Earth but the cruise
+    frame = {"type": "Feature", "properties": {}, "geometry": {"type": "Polygon", "coordinates": [[
+        [lon0, lat0], [lon0, lat1], [lon1, lat1], [lon1, lat0], [lon0, lat0]]]}}
+    land = alt.Data(values=world_topology(), format=alt.DataFormat(type="topojson", feature="land"))
+    return alt.layer(
+        alt.Chart(alt.sphere()).mark_geoshape(fill="#eaf2f7", stroke="#9fb3bf"),
+        alt.Chart(alt.graticule(step=[30, 30])).mark_geoshape(filled=False, stroke="#cfdbe2", strokeWidth=0.5),
+        alt.Chart(land).mark_geoshape(fill="#c5ccd1", stroke="#8a979e", strokeWidth=0.3),
+        alt.Chart(alt.Data(values=[frame])).mark_geoshape(filled=False, stroke="#c62828", strokeWidth=2),
+    ).project(**projection).properties(width=size, height=size)
 
 
 def clip_lines(lines, line_id, box, most):
@@ -345,7 +384,8 @@ def flag_chart(df, height=MAP_HEIGHT):
                         legend=alt.Legend(orient="top")),
         order=alt.Order("top:Q"),
         tooltip=["bin", alt.Tooltip("time:T", format="%Y-%m-%d %H:%M"), "object_lat", "object_lon", "status", "to check"])
-    return zoomable(alt.layer(*background, points).properties(width=int(MAP_ASPECT * height), height=height))
+    return zoomable(alt.layer(*background, points).properties(width=int(MAP_ASPECT * height), height=height,
+                                                             autosize=alt.AutoSizeParams(type="pad")))
 
 
 MAP_FIGURE = "sample_qc_map.png"
@@ -413,7 +453,9 @@ def charts(df, variables, depth):
                                 legend=alt.Legend(orient="right", gradientLength=200)),
                 tooltip=tooltip + ["object_lat", "object_lon", c])
             figures[figure_name(c, "map")] = (f"{title} along the track",
-                                              zoomable(alt.layer(*background, points).properties(width=MAP_WIDTH, height=MAP_HEIGHT)))
+                                              zoomable(alt.layer(*background, points).properties(
+                                                  width=MAP_WIDTH, height=MAP_HEIGHT,
+                                                  autosize=alt.AutoSizeParams(type="pad"))))  # else Streamlit fits legend and axes inside the width
     return figures
 
 
