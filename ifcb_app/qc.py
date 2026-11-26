@@ -1,6 +1,9 @@
 """Quality check figures of a project (no UI code here): used by the pages of steps 2 and 3 and by make_figures.py."""
+import functools
 import hashlib
 import json
+import math
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -112,7 +115,7 @@ def colour(values):
 BAD = "#c62828"  # red: a bad bin of the raw data check (flag 4)
 STATUSES = [("bad run (flag 4)", BAD), ("metadata to check", TO_CHECK), ("nothing to report", SERIES)]
 BAD_RUN = ("Incomplete run", "Few images per trigger")  # the checks of step 2 that flag a bin 4
-WORLD = Path(__file__).with_name("world-110m.json")  # Natural Earth 1:110m land (public domain), via vega-datasets
+WORLD = Path(__file__).with_name("land-50m.json")  # Natural Earth 1:50m land (public domain), via world-atlas (ISC)
 
 
 def map_status(df):
@@ -198,6 +201,116 @@ def position_map(df, width=900, height=460):
     return chart, counts
 
 
+@functools.lru_cache(maxsize=1)
+def coastline():
+    """DataFrame lon, lat, ring, order: the outline of the land of WORLD (TopoJSON: quantized arcs, delta-encoded),
+    to draw as lines in a longitude / latitude chart."""
+    with open(WORLD, encoding="utf-8") as f:
+        topo = json.load(f)
+    (sx, sy), (tx, ty) = topo["transform"]["scale"], topo["transform"]["translate"]
+    arcs = []
+    for arc in topo["arcs"]:
+        x = y = 0
+        points = []
+        for dx, dy in arc:
+            x, y = x + dx, y + dy
+            points.append((x * sx + tx, y * sy + ty))
+        arcs.append(points)
+    rows, ring_id = [], 0
+    land = topo["objects"]["land"]
+    geometries = land.get("geometries", [land])  # one geometry, or a collection of them
+    for g in geometries:
+        polygons = g["arcs"] if g["type"] == "MultiPolygon" else [g["arcs"]]
+        for polygon in polygons:
+            for ring in polygon:
+                points = []
+                for k in ring:  # a negative index is the arc ~k reversed
+                    a = arcs[k] if k >= 0 else arcs[~k][::-1]
+                    points.extend(a if not points else a[1:])
+                rows.extend({"lon": x, "lat": y, "ring": ring_id, "order": n} for n, (x, y) in enumerate(points))
+                ring_id += 1
+    return pd.DataFrame(rows)
+
+
+ISOBATHS = (200, 1000, 2000, 4000)  # metres, as on the maps of the cruise reports
+BATHY_URL = ("https://coastwatch.pfeg.noaa.gov/erddap/griddap/etopo180.csv?"
+             "altitude%5B({lat0}):{s}:({lat1})%5D%5B({lon0}):{s}:({lon1})%5D")  # NOAA ETOPO1, public domain, 1 arc-minute
+BATHY_CACHE = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "ifcb_app" / "bathymetry"
+
+
+@functools.lru_cache(maxsize=16)
+def bathymetry(lon0, lon1, lat0, lat1):
+    """DataFrame lon, lat, depth, line, order: the ISOBATHS of the box, from NOAA ETOPO1 (asked once per box, then
+    kept in BATHY_CACHE). Empty when offline: the maps are drawn without them. Only the box is sent to NOAA."""
+    lon0, lon1, lat0, lat1 = (math.floor(lon0), math.ceil(lon1), max(math.floor(lat0), -89), min(math.ceil(lat1), 89))
+    cache = BATHY_CACHE / f"isobaths_{lon0}_{lon1}_{lat0}_{lat1}.csv"
+    if cache.is_file():
+        return pd.read_csv(cache)
+    try:
+        import io
+        import urllib.request
+
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        stride = max(1, math.ceil(max(lon1 - lon0, lat1 - lat0) * 60 / 300))  # at most ~300 points a side
+        url = BATHY_URL.format(lat0=lat0, lat1=lat1, lon0=lon0, lon1=lon1, s=stride)
+        with urllib.request.urlopen(url, timeout=30) as r:
+            grid = pd.read_csv(io.StringIO(r.read().decode("utf-8")), skiprows=[1])
+        z = grid.pivot(index="latitude", columns="longitude", values="altitude")
+        fig, ax = plt.subplots()
+        cs = ax.contour(z.columns.values, z.index.values, z.values, levels=sorted(-d for d in ISOBATHS))
+        plt.close(fig)
+        rows, line = [], 0
+        for level, segments in zip(cs.levels, cs.allsegs):
+            for seg in segments:
+                rows.extend({"lon": x, "lat": y, "depth": int(-level), "line": line, "order": n} for n, (x, y) in enumerate(seg))
+                line += 1
+        out = pd.DataFrame(rows, columns=["lon", "lat", "depth", "line", "order"])
+        BATHY_CACHE.mkdir(parents=True, exist_ok=True)
+        out.to_csv(cache, index=False)
+        return out
+    except Exception:  # offline, server down: no isobaths
+        return pd.DataFrame(columns=["lon", "lat", "depth", "line", "order"])
+
+
+def track_axes(lon, lat):
+    """(x, y, background layers) for a chart of the bins by longitude and latitude: the axes framed on the bins, the
+    coastline and the isobaths behind the points (clipped to the frame)."""
+    import altair as alt
+    lon0, lon1, lat0, lat1 = lon.min(), lon.max(), lat.min(), lat.max()
+    pad = max(0.1, 0.05 * max(lon1 - lon0, lat1 - lat0))
+    lon0, lon1, lat0, lat1 = lon0 - pad, lon1 + pad, lat0 - pad, lat1 + pad
+    x = alt.X("lon:Q", title="Longitude (degrees E)", scale=alt.Scale(domain=[lon0, lon1], zero=False, nice=False))
+    y = alt.Y("lat:Q", title="Latitude (degrees N)", scale=alt.Scale(domain=[lat0, lat1], zero=False, nice=False))
+    span = max(lon1 - lon0, lat1 - lat0)
+    box = (lon0 - span / 4, lon1 + span / 4, lat0 - span / 4, lat1 + span / 4)  # a margin for zooming out a little
+    coast = clip_lines(coastline(), "ring", box, 2500)
+    layers = [alt.Chart(coast).mark_line(color="#5a6b74", strokeWidth=1.2, clip=True).encode(
+        x=x, y=y, detail="piece:N", order="order:Q")]
+    bathy = clip_lines(bathymetry(lon0 - span / 2, lon1 + span / 2, lat0 - span / 2, lat1 + span / 2), "line", box, 2000)
+    if len(bathy):
+        layers.insert(0, alt.Chart(bathy).mark_line(color="#6fa8c8", strokeWidth=0.9, clip=True).encode(
+            x=x, y=y, detail="piece:N", order="order:Q",
+            opacity=alt.Opacity("depth:O", legend=None, scale=alt.Scale(range=[0.95, 0.5])),
+            tooltip=[alt.Tooltip("depth:Q", title="isobath (m)")]))
+    return x, y, layers
+
+
+def clip_lines(lines, line_id, box, most):
+    """The points of `lines` (lon, lat, order, and a line id) inside box (lon0, lon1, lat0, lat1), with a new 'piece'
+    wherever points were left out, so that no straight segment joins two pieces; thinned to about `most` points
+    (Altair takes at most 5000 rows per chart)."""
+    lon0, lon1, lat0, lat1 = box
+    inside = lines["lon"].between(lon0, lon1) & lines["lat"].between(lat0, lat1)
+    if not inside.any():
+        return lines.iloc[0:0].assign(piece=[])
+    breaks = (~inside).cumsum()  # rises at every point left out: the pieces on either side differ
+    kept = lines.assign(piece=lines[line_id].astype(str) + "_" + breaks.astype(str))[inside]
+    step = max(1, math.ceil(len(kept) / most))
+    return kept.iloc[::step]
+
+
 def flag_chart(df, height=260):
     """The bins by longitude and latitude, coloured by map_status (red bad run, orange metadata to check, blue nothing
     to report), the reasons on hover; zoomable. None without positions."""
@@ -209,15 +322,15 @@ def flag_chart(df, height=260):
         return None
     present = [(s, c) for s, c in STATUSES if (d["status"] == s).any()]
     cols = [c for c in ("bin", "time", "object_lat", "object_lon", "status", "to check") if c in d.columns]
-    return zoomable(alt.Chart(d[cols].assign(top=(d["status"] != "nothing to report").astype(int))).mark_circle(
-        size=40, opacity=0.85).encode(
-        x=alt.X("object_lon:Q", title="Longitude (degrees E)", scale=alt.Scale(zero=False, padding=12)),
-        y=alt.Y("object_lat:Q", title="Latitude (degrees N)", scale=alt.Scale(zero=False, padding=12)),
+    d = d[cols].assign(lon=d["object_lon"], lat=d["object_lat"], top=(d["status"] != "nothing to report").astype(int))
+    x, y, background = track_axes(d["lon"], d["lat"])
+    points = alt.Chart(d).mark_circle(size=40, opacity=0.85, clip=True).encode(
+        x=x, y=y,
         color=alt.Color("status:N", title=None, scale=alt.Scale(domain=[s for s, _ in present], range=[c for _, c in present]),
                         legend=alt.Legend(orient="top")),
         order=alt.Order("top:Q"),
         tooltip=["bin", alt.Tooltip("time:T", format="%Y-%m-%d %H:%M"), "object_lat", "object_lon", "status", "to check"])
-        .properties(height=height))
+    return zoomable(alt.layer(*background, points).properties(height=height))
 
 
 MAP_FIGURE = "sample_qc_map.png"
@@ -273,15 +386,19 @@ def charts(df, variables, depth):
                 data([c, MAP], [c, "object_lat"]), "object_lat:Q", f"{c}:Q", "Latitude (degrees N, south → north)", title))
             # the three axes at once: longitude, latitude and the value as a colour
             d = data([c], [c, "object_lon", "object_lat"]).dropna(subset=["object_lon", "object_lat", c])
-            figures[figure_name(c, "map")] = (f"{title} along the track", zoomable(
-                alt.Chart(d.sort_values(c)).mark_circle(size=45, opacity=0.9).encode(
-                    x=alt.X("object_lon:Q", title="Longitude (degrees E)", scale=alt.Scale(zero=False, padding=12)),
-                    y=alt.Y("object_lat:Q", title="Latitude (degrees N)", scale=alt.Scale(zero=False, padding=12)),
-                    # title on two lines (name, then unit); a log scale for the concentration, very skewed
-                    color=alt.Color(f"{c}:Q", title=[t.strip(") ") for t in title.split(" (")],
-                                    scale=alt.Scale(scheme="viridis", type="log" if c == "rois_per_ml" else "linear"),
-                                    legend=alt.Legend(orient="right", gradientLength=200)),
-                    tooltip=tooltip + ["object_lat", "object_lon", c]).properties(height=260)))
+            d = d.assign(lon=d["object_lon"], lat=d["object_lat"]).sort_values(c)
+            if d.empty:
+                continue
+            x, y, background = track_axes(d["lon"], d["lat"])  # coastline and isobaths behind the points
+            points = alt.Chart(d).mark_circle(size=45, opacity=0.9, clip=True).encode(
+                x=x, y=y,
+                # title on two lines (name, then unit); a log scale for the concentration, very skewed
+                color=alt.Color(f"{c}:Q", title=[t.strip(") ") for t in title.split(" (")],
+                                scale=alt.Scale(scheme="viridis", type="log" if c == "rois_per_ml" else "linear"),
+                                legend=alt.Legend(orient="right", gradientLength=200)),
+                tooltip=tooltip + ["object_lat", "object_lon", c])
+            figures[figure_name(c, "map")] = (f"{title} along the track",
+                                              zoomable(alt.layer(*background, points).properties(height=260)))
     return figures
 
 
