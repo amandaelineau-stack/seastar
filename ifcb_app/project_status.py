@@ -3,8 +3,8 @@ about. Writes nothing.
 
     python project_status.py <project folder> [<project folder> ...]
 
-Per day: bins in raw/, complete bins (hdr + adc + roi), feature files and EcoTaxa zips; days where they differ are
-marked with <. Then the date of each step and the steps done out of order (e.g. EcoTaxa zips older than the
+Per day: bins in raw/, complete bins (hdr + adc + roi), bad bins (flag 4), feature files and EcoTaxa zips; days with
+incomplete bins or good bins without a feature file or zip are marked with < (bad bins have none on purpose). Then the date of each step and the steps done out of order (e.g. EcoTaxa zips older than the
 metadata), and the warnings: incomplete bins, bins without features, no metadata file, points still to check,
 last runs that failed or stopped, WHOI version. Run it before each step.
 """
@@ -26,16 +26,15 @@ def show(root):
         print("  Missing folders: " + ", ".join(missing))
     print("  Metadata files: " + (", ".join(s["metadata"]) or "none yet"))
 
-    keys = ("bins", "complete_bins", "features", "ecotaxa_zips")
-    print(f"\n{'Day':10s} {'Bins':>6s} {'Complete':>9s} {'Features':>9s} {'Zips':>6s}")
+    keys = ("bins", "complete_bins", "bad_bins", "features", "ecotaxa_zips")
+    print(f"\n{'Day':10s} {'Bins':>6s} {'Complete':>9s} {'Bad':>5s} {'Features':>9s} {'Zips':>6s}")
     total = dict.fromkeys(keys, 0)
     for day, d in s["days"].items():
-        differ = len({d[k] for k in keys}) > 1
-        print(f"{day:10s} {d['bins']:6d} {d['complete_bins']:9d} {d['features']:9d} {d['ecotaxa_zips']:6d}"
-              + ("  <" if differ else ""))
+        print(f"{day:10s} {d['bins']:6d} {d['complete_bins']:9d} {d['bad_bins']:5d} {d['features']:9d} {d['ecotaxa_zips']:6d}"
+              + ("  <" if project.day_incomplete(d) else ""))
         for k in keys:
             total[k] += d[k]
-    print(f"{'Total':10s} {total['bins']:6d} {total['complete_bins']:9d} {total['features']:9d} {total['ecotaxa_zips']:6d}")
+    print(f"{'Total':10s} {total['bins']:6d} {total['complete_bins']:9d} {total['bad_bins']:5d} {total['features']:9d} {total['ecotaxa_zips']:6d}")
 
     t = project.timeline(root)
     print("\nSteps:")

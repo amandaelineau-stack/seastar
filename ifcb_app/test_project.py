@@ -112,7 +112,11 @@ def test_create_and_scan():
                          ("D20260802T060000_IFCB225", "Incomplete run")}, found
 
         s = project.scan_project(root)
-        assert s["days"]["D20260802"] == {"bins": 2, "complete_bins": 1, "features": 1, "ecotaxa_zips": 0}
+        assert s["days"]["D20260802"] == {"bins": 2, "complete_bins": 1, "bad_bins": 0, "features": 1, "ecotaxa_zips": 0}, s["days"]
+        assert project.day_incomplete(s["days"]["D20260802"])
+        ok = {"bins": 3, "complete_bins": 3, "bad_bins": 1, "features": 2, "ecotaxa_zips": 2}
+        assert not project.day_incomplete(ok) and not project.day_incomplete({**ok, "features": 3})  # bad bin with or without
+        assert project.day_incomplete({**ok, "ecotaxa_zips": 1})  # a good bin without its zip
         assert s["name_info"] == {"serial": "225", "cruise_id": "ce26008", "cruise_name": "ar7e"}
         assert all(s["present"].values())
 

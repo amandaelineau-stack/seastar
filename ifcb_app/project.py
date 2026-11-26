@@ -524,17 +524,19 @@ def scan_name(root):
 
 def scan_project(root):
     """Summarise an existing project: which standard folders exist, and per day how many
-    bins, feature files, EcoTaxa zips there are."""
+    bins, bad bins (flag 4, no features or zip on purpose), feature files, EcoTaxa zips there are."""
     present = {d: os.path.isdir(os.path.join(root, d)) for d in STANDARD_DIRS}
     days = {}
+    bad = set(bad_bins(root))
 
     def day(d):
-        return days.setdefault(d, {"bins": 0, "complete_bins": 0, "features": 0, "ecotaxa_zips": 0})
+        return days.setdefault(d, {"bins": 0, "complete_bins": 0, "bad_bins": 0, "features": 0, "ecotaxa_zips": 0})
 
     for b, exts in raw_bins(root).items():
         d = day(b[:9])
         d["bins"] += 1
         d["complete_bins"] += len(exts) == 3
+        d["bad_bins"] += b in bad
 
     for f in _files(os.path.join(root, FEATURES_DIR)):
         if f.endswith("_features_v4.csv") and _day_of(f):
@@ -548,6 +550,14 @@ def scan_project(root):
     metadata = sorted(os.path.relpath(f, meta_dir).replace("\\", "/") for f in _files(meta_dir) if f.lower().endswith(".csv"))
     info = scan_name(root)
     return {"root": root, "name_info": info, "present": present, "days": dict(sorted(days.items())), "metadata": metadata}
+
+
+def day_incomplete(d):
+    """True when a day of scan_project has incomplete bins, or good bins without a feature file or zip. The bad bins
+    may have them or not (--include-bad)."""
+    good = d["bins"] - d["bad_bins"]
+    return d["complete_bins"] != d["bins"] or not good <= d["features"] <= d["bins"] \
+        or not good <= d["ecotaxa_zips"] <= d["bins"]
 
 
 # ---------------------------------------------------------------- warnings, for the command line

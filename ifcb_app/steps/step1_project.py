@@ -103,14 +103,14 @@ for col, key, label in ((c2, "bins", "Bins"), (c3, "features", "Feature files"),
     col.metric(label, int(days[key].sum()) if len(days) else 0)
 
 if len(days):
+    todo = days[days.apply(project.day_incomplete, axis=1)]
     days.index.name = "Day"
     days = days.rename(columns={"bins": "Bins", "complete_bins": "Complete bins (hdr+adc+roi)",
-                                "features": "Feature files", "ecotaxa_zips": "EcoTaxa zips"})
-    todo = days[(days["Feature files"] != days["Bins"]) | (days["EcoTaxa zips"] != days["Bins"])
-                | (days["Complete bins (hdr+adc+roi)"] != days["Bins"])]
+                                "bad_bins": "Bad bins (flag 4)", "features": "Feature files",
+                                "ecotaxa_zips": "EcoTaxa zips"})
     if len(todo):
-        st.info(f"{len(todo)} day{'s' if len(todo) > 1 else ''} where the numbers of bins, feature files and "
-                "EcoTaxa zips differ (highlighted).")
+        st.info(f"{len(todo)} day{'s' if len(todo) > 1 else ''} with incomplete bins, or good bins without a "
+                "feature file or EcoTaxa zip (highlighted). Bad bins (flag 4) have none on purpose.")
     st.dataframe(days.style.apply(lambda r: ["background-color: rgba(230,160,40,.18)" if r.name in todo.index else ""] * len(r),
                                   axis=1), width="stretch")
 else:
