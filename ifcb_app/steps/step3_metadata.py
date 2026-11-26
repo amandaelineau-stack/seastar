@@ -157,7 +157,7 @@ with st.expander("Add an EcoTaxa column to the list"):
 
 # ---------------------------------------------------------------- figures of the metadata
 st.subheader("Sampling metadata: map, and each value against time and depth")
-st.caption("These values become the `sample_…` and `object_lat` / `object_lon` / `object_depth_…` columns of the EcoTaxa "
+st.caption("These values become the `sample_…` and `object_lat` / `object_lon` (also `sample_lat` / `sample_lon`) / `object_depth_…` columns of the EcoTaxa "
            "tables (step 5); the checks of this step are summed up in `sample_metadata_flag` and "
            "`sample_metadata_missing`.")
 stats = common.known_stats(folder)

@@ -643,6 +643,9 @@ def warnings(root, step):
             if rows and "sample_metadata_flag" not in rows[0]:
                 out.append("The metadata were saved before the metadata flags: save them again (step 3, "
                            "make_metadata.py) to get sample_metadata_flag and sample_metadata_missing.")
+            elif rows and "object_lat" in rows[0] and "sample_lat" not in rows[0]:  # sample_lat/lon added 2026-11-26
+                out.append("The metadata were saved before sample_lat and sample_lon (required by EcoTaxa) were added: "
+                           "save them again (step 3, make_metadata.py), then make the EcoTaxa tables again.")
             gaps = [r["bin"] for r in rows if r.get("sample_metadata_flag", "1") != "1"]
             added = sorted(set(complete_bins(root)) - {r["bin"] for r in rows})
             if gaps or added:
