@@ -40,19 +40,6 @@ def sheet_names(path, mtime):
     return pd.ExcelFile(path).sheet_names
 
 
-def add_new_field():
-    s = st.session_state
-    try:
-        metadata.add_field(s["nf_field"], s["nf_column"], "f" if s["nf_type"].startswith("Number") else "t",
-                           s["nf_unit"], s["nf_default"], s["nf_description"], s["nf_min"], s["nf_max"])
-    except ValueError as e:
-        s["nf_message"] = ("error", str(e) if "convert" not in str(e) else "The expected values must be numbers")
-        return
-    s["nf_message"] = ("success", f"Added {s['nf_column']}: it is now in the list of every project.")
-    for k in ("nf_field", "nf_column", "nf_unit", "nf_default", "nf_description", "nf_min", "nf_max"):
-        s[k] = ""
-
-
 st.caption("Choose the spreadsheet of the samples (CSV or Excel), then which of its columns fills each EcoTaxa column. "
            "The EcoTaxa names come from one list shared by all the projects, so every cruise gets the same columns. "
            "A value in **If empty** is used when the spreadsheet has no value for a bin (e.g. depth 5 m). "
@@ -174,36 +161,25 @@ if ok:
                    f"step 5. Check report: `log/{Path(report).name}`.")
     meta_rows, meta_problems = out, problems
 
-with st.expander("Add an EcoTaxa column to the list"):
-    st.caption("For a measurement that is not in the list yet. It is added for every future project "
-               f"(file `{Path(metadata.FIELDS_CSV).name}` of the app).")
-    c1, c2, c3 = st.columns(3)
-    c1.text_input("Field name", key="nf_field", placeholder="oxygen")
-    c2.text_input("EcoTaxa column", key="nf_column", placeholder="sample_oxygen_umol_kg",
-                  help="Starts with sample_ (or object_, acq_, process_); lower-case letters, digits and _")
-    c3.radio("Type", ("Number [f]", "Text [t]"), key="nf_type", horizontal=True)
-    c1, c2, c3 = st.columns(3)
-    c1.text_input("Unit", key="nf_unit", placeholder="umol kg-1")
-    c2.text_input("Value if empty (optional)", key="nf_default")
-    c3.text_input("Description", key="nf_description", placeholder="Dissolved oxygen")
-    c1, c2, _ = st.columns(3)
-    c1.text_input("Lowest expected value (optional)", key="nf_min", placeholder="0",
-                  help="Values outside the expected range are listed in the checks")
-    c2.text_input("Highest expected value (optional)", key="nf_max", placeholder="400")
-    st.button("Add the column", on_click=add_new_field)
-    if st.session_state.get("nf_message"):
-        kind, text = st.session_state.pop("nf_message")
-        (st.error if kind == "error" else st.success)(text)
-
-with st.expander("Edit or remove EcoTaxa columns of the list"):
-    st.caption(f"The list shared by every project (`{Path(metadata.FIELDS_CSV).name}` of the app). Change a cell, or "
-               "select a row (box on its left) and press Delete to remove it, then **Save the list**. Several EcoTaxa "
-               "columns of one field are separated by `;`. A removed field is no longer proposed; metadata already "
-               "saved keep it until step 3 is saved again. Latitude, longitude and depth cannot be removed.")
+with st.expander("✏️ Edit the list of EcoTaxa columns"):
+    st.caption(f"The list shared by every project (`{Path(metadata.FIELDS_CSV).name}` of the app). In the toolbar of "
+               "the table (top right): **+** adds a row, the **bin** deletes the rows selected with the boxes on their "
+               "left; double-click a cell to change it. Then **Save the list**. Several EcoTaxa columns of one field are "
+               "separated by `;`. A removed field is no longer proposed; metadata already saved keep it until step 3 is "
+               "saved again. Latitude, longitude and depth cannot be removed.")
     list_mtime = Path(metadata.FIELDS_CSV).stat().st_mtime
-    list_edited = st.data_editor(pd.DataFrame(metadata.load_fields()), hide_index=True, width="stretch",
-                                 num_rows="dynamic", key=f"fields_list_{list_mtime}",
-                                 column_config={"type": st.column_config.SelectboxColumn(options=["f", "t"])})
+    list_edited = st.data_editor(
+        pd.DataFrame(metadata.load_fields(), columns=metadata.FIELD_KEYS), hide_index=True, width="stretch",
+        num_rows="dynamic", key=f"fields_list_{list_mtime}",
+        column_config={"field": st.column_config.TextColumn("Field", help="Lower-case letters, digits and _, e.g. oxygen"),
+                       "ecotaxa_columns": st.column_config.TextColumn(
+                           "EcoTaxa columns", help="Start with sample_ (or object_, acq_, process_), e.g. sample_oxygen_umol_kg"),
+                       "type": st.column_config.SelectboxColumn("Type", options=["f", "t"], help="f = number, t = text"),
+                       "unit": st.column_config.TextColumn("Unit"),
+                       "default": st.column_config.TextColumn("If empty", help="Value used when the spreadsheet has none"),
+                       "min": st.column_config.TextColumn("Lowest expected", help="Values outside the range are listed in the checks"),
+                       "max": st.column_config.TextColumn("Highest expected"),
+                       "description": st.column_config.TextColumn("Description")})
     if st.button("Save the list"):
         try:
             metadata.save_fields(list_edited.to_dict("records"))
