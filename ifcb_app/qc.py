@@ -249,6 +249,15 @@ def charts(df, variables, depth):
                 data([c, MAP], [c, "object_lon"]), "object_lon:Q", f"{c}:Q", "Longitude (degrees E, west → east)", title))
             figures[figure_name(c, "latitude")] = (f"{title} against latitude", scatter(
                 data([c, MAP], [c, "object_lat"]), "object_lat:Q", f"{c}:Q", "Latitude (degrees N, south → north)", title))
+            # the three axes at once: longitude, latitude and the value as a colour
+            d = data([c], [c, "object_lon", "object_lat"]).dropna(subset=["object_lon", "object_lat", c])
+            figures[figure_name(c, "map")] = (f"{title} along the track", zoomable(
+                alt.Chart(d.sort_values(c)).mark_circle(size=45, opacity=0.9).encode(
+                    x=alt.X("object_lon:Q", title="Longitude (degrees E)", scale=alt.Scale(zero=False, padding=12)),
+                    y=alt.Y("object_lat:Q", title="Latitude (degrees N)", scale=alt.Scale(zero=False, padding=12)),
+                    color=alt.Color(f"{c}:Q", title=title, scale=alt.Scale(scheme="viridis"),
+                                    legend=alt.Legend(orient="right", gradientLength=200)),
+                    tooltip=tooltip + ["object_lat", "object_lon", c]).properties(height=260)))
     return figures
 
 

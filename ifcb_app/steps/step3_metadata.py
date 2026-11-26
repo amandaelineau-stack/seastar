@@ -270,7 +270,7 @@ st.caption("For each variable: against the time the IFCB analysed the bin, again
 for c, title, by_depth in variables:
     if not by_depth:
         continue  # the instrument values are in step 2
-    shown = [figures[k][1] for a in ("time", "depth", "longitude", "latitude")
+    shown = [figures[k][1] for a in ("time", "depth", "longitude", "latitude", "map")
              for k in [qc.figure_name(c, a)] if k in figures]
     st.markdown(f"**{title}**")
     for i in range(0, len(shown), 2):
