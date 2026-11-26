@@ -43,7 +43,11 @@ def test_build():
     assert r1["sample_niskin_id"] == "21"
     assert r2["sample_salinity_pss"] == ""
     assert (r1["sample_metadata_flag"], r1["sample_metadata_missing"]) == (1, "ok")
-    assert (r2["sample_metadata_flag"], r2["sample_metadata_missing"]) == (9, "niskin_date; niskin_time; salinity; niskin_id")
+    # B2 has no Niskin value: an in situ sample, its Niskin fields do not apply (and are not missing)
+    assert (r1["sample_sampling_type"], r2["sample_sampling_type"], r3["sample_sampling_type"]) == ("niskin", "in situ", "")
+    assert r2["sample_niskin_id"] == r2["sample_niskin_date"] == r2["sample_niskin_time"] == metadata.NOT_APPLICABLE
+    assert "niskin" not in r2["sample_metadata_missing"] and columns["sample_sampling_type"] == "t"
+    assert (r2["sample_metadata_flag"], r2["sample_metadata_missing"]) == (9, "salinity")  # Niskin fields: in situ
     assert r3["sample_metadata_flag"] == 9 and r3["sample_metadata_missing"].startswith("not in the spreadsheet; lat")
     assert columns["sample_metadata_flag"] == "f"
     checks = {p["check"] for p in problems}

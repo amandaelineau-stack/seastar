@@ -24,6 +24,11 @@ BIN_COLUMNS = {"sample_date": "t", "sample_time": "t"}
 # Per bin, on the IODE scale of the QC: 1 every field filled, 3 a value out of range, 9 a value missing (or the bin not in
 # the spreadsheet); and which fields are missing. A bin without metadata still gets its EcoTaxa table, flagged.
 FLAG_COLUMNS = {"sample_metadata_flag": "f", "sample_metadata_missing": "t"}
+# Niskin or in situ (underway intake) sample: a spreadsheet row without any Niskin or CTD value is in situ, and its
+# Niskin fields get NOT_APPLICABLE instead of counting as missing (Amanda, 2026-11-26)
+SAMPLING_COLUMNS = {"sample_sampling_type": "t"}
+NISKIN_FIELDS = ("niskin_date", "niskin_time", "niskin_id", "ctd_id")
+NOT_APPLICABLE = "not applicable"
 
 
 def read_spreadsheet(path, sheet=None):
@@ -73,7 +78,7 @@ REQUIRED_COLUMNS = {"object_lat", "object_lon", "sample_depth_min"}
 def save_fields(fields, path=FIELDS_CSV):
     """Check the whole list (edited in step 3, or after add_field / remove_field) and write it. Raises ValueError with
     every problem found; nothing is written then. Returns the list as written."""
-    clean, problems, seen_fields, seen_columns = [], [], set(), set(BIN_COLUMNS) | set(FLAG_COLUMNS)
+    clean, problems, seen_fields, seen_columns = [], [], set(), set(BIN_COLUMNS) | set(FLAG_COLUMNS) | set(SAMPLING_COLUMNS)
     for i, f in enumerate(fields, 1):
         f = {k: as_text(f.get(k)) for k in FIELD_KEYS}  # a row added in the app has None or NaN
         if not any(f.values()):
@@ -217,7 +222,7 @@ def propose_field(column, rows, fields=None):
             return True
         except ValueError:
             return False
-    taken = {c for f in fields for c in f["ecotaxa_columns"].split(";")} | set(BIN_COLUMNS) | set(FLAG_COLUMNS)
+    taken = {c for f in fields for c in f["ecotaxa_columns"].split(";")} | set(BIN_COLUMNS) | set(FLAG_COLUMNS) | set(SAMPLING_COLUMNS)
     while "sample_" + field in taken or field in {f["field"] for f in fields}:  # sample_time is the analysis time
         field += "_sheet"
     return {"field": field, "ecotaxa_column": "sample_" + field, "type": "f" if all(number(v) for v in values if v) else "t",
@@ -240,7 +245,7 @@ def build(rows, bin_column, mapping, bins):
     rows: spreadsheet rows (dicts); mapping: {field name: {"source": column or "", "default": text}}.
     Returns (columns {name: type}, output rows, problems)."""
     fields = [f for f in load_fields() if mapping.get(f["field"], {}).get("source") or mapping.get(f["field"], {}).get("default")]
-    columns = {"bin": "t", **BIN_COLUMNS}
+    columns = {"bin": "t", **BIN_COLUMNS, **SAMPLING_COLUMNS}
     for f in fields:
         for c in f["ecotaxa_columns"].split(";"):
             columns[c] = f["type"]
@@ -280,8 +285,16 @@ def build(rows, bin_column, mapping, bins):
         row = {"bin": b, "sample_date": dt.strftime("%Y-%m-%d"), "sample_time": dt.strftime("%H:%M:%S")}
         line, r = by_bin.get(b, (None, {}))
         missing, doubtful = ([] if line else ["not in the spreadsheet"]), False
+        # A row without any Niskin or CTD value is an in situ sample (underway intake): its Niskin fields do not apply
+        in_situ = bool(line) and not any(as_text(r.get(mapping[f["field"]].get("source"))) for f in fields
+                                          if f["field"] in NISKIN_FIELDS and mapping[f["field"]].get("source"))
+        row["sample_sampling_type"] = "" if not line else "in situ" if in_situ else "niskin"
         for f in fields:
             m = mapping[f["field"]]
+            if in_situ and f["field"] in NISKIN_FIELDS and f["type"] == "t":
+                for c in f["ecotaxa_columns"].split(";"):
+                    row[c] = NOT_APPLICABLE
+                continue
             v = as_text(r.get(m["source"])) if m.get("source") else ""
             if v == "":
                 v = m.get("default", "").strip()
