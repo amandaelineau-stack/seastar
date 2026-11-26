@@ -1,5 +1,4 @@
 """Quality check figures of a project (no UI code here): used by the pages of steps 2 and 3 and by make_figures.py."""
-import functools
 import hashlib
 import json
 from datetime import datetime
@@ -127,42 +126,11 @@ def map_status(df):
                       for t, f, p in zip(to_check, meta_flag, position)], index=df.index)
 
 
-@functools.lru_cache(maxsize=1)
-def coastline():
-    """DataFrame lon, lat, ring, order: the outline of the land of WORLD (TopoJSON: quantized arcs, delta-encoded),
-    to draw as lines in a longitude / latitude chart."""
-    with open(WORLD, encoding="utf-8") as f:
-        topo = json.load(f)
-    (sx, sy), (tx, ty) = topo["transform"]["scale"], topo["transform"]["translate"]
-    arcs = []
-    for arc in topo["arcs"]:
-        x = y = 0
-        points = []
-        for dx, dy in arc:
-            x, y = x + dx, y + dy
-            points.append((x * sx + tx, y * sy + ty))
-        arcs.append(points)
-    rows, ring_id = [], 0
-    land = topo["objects"]["land"]
-    geometries = land.get("geometries", [land])  # one geometry, or a collection of them
-    for g in geometries:
-        polygons = g["arcs"] if g["type"] == "MultiPolygon" else [g["arcs"]]
-        for polygon in polygons:
-            for ring in polygon:
-                points = []
-                for k in ring:  # a negative index is the arc ~k reversed
-                    a = arcs[k] if k >= 0 else arcs[~k][::-1]
-                    points.extend(a if not points else a[1:])
-                rows.extend({"lon": x, "lat": y, "ring": ring_id, "order": n} for n, (x, y) in enumerate(points))
-                ring_id += 1
-    return pd.DataFrame(rows)
-
-
-def position_map(df, width=900):
-    """(Altair map of the bins with a position, or None; {status: number of bins, with 'no position'}). Longitude and
-    latitude axes in degrees, the coastline, one point per bin coloured by map_status; zoom with Shift + mouse wheel,
-    drag to pan, double-click to reset. Framed on the bins, height set so that a degree of longitude keeps its length
-    at that latitude. The positions come from the metadata of step 3: the IFCB records none."""
+def position_map(df, width=900, height=460):
+    """(Altair map of the bins with a position, or None; {status: number of bins, with 'no position'}). Land, a grid
+    with the degrees on the edges, and one point per bin coloured by map_status. Mercator, framed on the bins. The
+    positions come from the metadata of step 3: the IFCB records none."""
+    import json
     import math
 
     import altair as alt
@@ -175,39 +143,59 @@ def position_map(df, width=900):
         counts["no position"] = len(d) - len(pos)
     if pos.empty:
         return None, counts
+
+    def merc(lat):
+        return math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
+
+    def unmerc(y):
+        return math.degrees(2 * math.atan(math.exp(y)) - math.pi / 2)
+
     lon0, lon1 = pos["object_lon"].min(), pos["object_lon"].max()
     lat0, lat1 = pos["object_lat"].min(), pos["object_lat"].max()
     pad = max(0.2, 0.08 * max(lon1 - lon0, lat1 - lat0))
-    lon0, lon1, lat0, lat1 = lon0 - pad, lon1 + pad, max(lat0 - pad, -89), min(lat1 + pad, 89)
-    stretch = 1 / max(math.cos(math.radians((lat0 + lat1) / 2)), 0.2)  # a degree of latitude, in degrees of longitude
-    height = int(min(max(width * (lat1 - lat0) * stretch / (lon1 - lon0), 300), 650))
-    # widen the shorter side so that the frame keeps the right proportions
-    need_lon = (lat1 - lat0) * stretch * width / height
-    if need_lon > lon1 - lon0:
-        lon0, lon1 = (lon0 + lon1) / 2 - need_lon / 2, (lon0 + lon1) / 2 + need_lon / 2
-    else:
-        need_lat = (lon1 - lon0) * height / width / stretch
-        lat0, lat1 = (lat0 + lat1) / 2 - need_lat / 2, (lat0 + lat1) / 2 + need_lat / 2
-    x = alt.X("lon:Q", title="Longitude (degrees E)", scale=alt.Scale(domain=[lon0, lon1], zero=False, nice=False))
-    y = alt.Y("lat:Q", title="Latitude (degrees N)", scale=alt.Scale(domain=[lat0, lat1], zero=False, nice=False))
-    coast = coastline()
-    span = max(lon1 - lon0, lat1 - lat0)
-    near = coast.groupby("ring").filter(lambda r: r["lon"].max() > lon0 - 3 * span and r["lon"].min() < lon1 + 3 * span
-                                        and r["lat"].max() > lat0 - 3 * span and r["lat"].min() < lat1 + 3 * span)
-    land = alt.Chart(near).mark_line(color="#8a979e", strokeWidth=1, clip=True).encode(
-        x=x, y=y, detail="ring:N", order="order:Q")
+    lon0, lon1, lat0, lat1 = lon0 - pad, lon1 + pad, max(lat0 - pad, -80), min(lat1 + pad, 80)
+    scale = min(width / math.radians(lon1 - lon0), height / (merc(lat1) - merc(lat0)))
+    clon, cy = (lon0 + lon1) / 2, (merc(lat0) + merc(lat1)) / 2
+    # what the frame really shows, to put the degrees on its edges
+    left, right = clon - math.degrees(width / 2 / scale), clon + math.degrees(width / 2 / scale)
+    bottom, top = unmerc(cy - height / 2 / scale), unmerc(cy + height / 2 / scale)
+    span = max(right - left, top - bottom)
+    step = next(s for s in (0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 30) if span / s <= 8)
+    projection = dict(type="mercator", scale=scale, center=[clon, unmerc(cy)],
+                                clipExtent=[[0, 0], [width, height]])
+
+    def ticks(a, b):
+        margin = 0.04 * (b - a)  # a label on the very edge of the frame is cut
+        return [round(k * step, 6) for k in range(math.ceil((a + margin) / step), math.floor((b - margin) / step) + 1)]
+
+    def degrees(v, pos_, neg):
+        return f"{abs(v):g}°{pos_ if v >= 0 else neg}"
+
+    with open(WORLD, encoding="utf-8") as f:
+        world = json.load(f)
+    land = alt.Chart(alt.Data(values=world, format=alt.DataFormat(type="topojson", feature="land"))).mark_geoshape(
+        fill="#e9ecef", stroke="#b8c2c8", strokeWidth=0.6).project(**projection)
+    grid = alt.Chart(alt.graticule(step=[step, step])).mark_geoshape(
+        filled=False, stroke="#c9d1d6", strokeWidth=0.5, strokeDash=[3, 3]).project(**projection)
+    lon_labels = pd.DataFrame([{"lon": v, "lat": bottom, "label": degrees(v, "E", "W")} for v in ticks(left, right)])
+    lat_labels = pd.DataFrame([{"lon": left, "lat": v, "label": degrees(v, "N", "S")} for v in ticks(bottom, top)])
+    text = {"fontSize": 11, "color": "#5a6b74"}
+    labels = [alt.Chart(lon_labels).mark_text(dy=-8, **text).encode(longitude="lon:Q", latitude="lat:Q", text="label:N")
+              .project(**projection),
+              alt.Chart(lat_labels).mark_text(dx=6, align="left", **text).encode(
+                  longitude="lon:Q", latitude="lat:Q", text="label:N").project(**projection)]
     present = [(s, c) for s, c in STATUSES if s in counts]
     cols = [c for c in ("bin", "time", "object_lat", "object_lon", "status", "to check") if c in pos.columns]
-    points = alt.Chart(pos[cols].rename(columns={"object_lat": "lat", "object_lon": "lon"})
-                       .assign(top=(pos["status"] != "nothing to report").astype(int).values)).mark_circle(
-        size=45, opacity=0.85, clip=True).encode(
-        x=x, y=y,
+    points = alt.Chart(pos[cols].assign(top=(pos["status"] != "nothing to report").astype(int))).mark_circle(
+        size=45, opacity=0.85).encode(
+        longitude="object_lon:Q", latitude="object_lat:Q",
         color=alt.Color("status:N", title=None, scale=alt.Scale(domain=[s for s, _ in present], range=[c for _, c in present]),
                         legend=alt.Legend(orient="top")),
         order=alt.Order("top:Q"),
-        tooltip=["bin", alt.Tooltip("time:T", format="%Y-%m-%d %H:%M"), alt.Tooltip("lat:Q", title="latitude", format=".4f"),
-                 alt.Tooltip("lon:Q", title="longitude", format=".4f"), "status", "to check"])
-    return zoomable(alt.layer(land, points).properties(width=width, height=height)), counts
+        tooltip=["bin", alt.Tooltip("time:T", format="%Y-%m-%d %H:%M"), alt.Tooltip("object_lat:Q", title="latitude", format=".4f"),
+                 alt.Tooltip("object_lon:Q", title="longitude", format=".4f"), "status", "to check"]).project(**projection)
+    chart = alt.layer(land, grid, points, *labels).properties(width=width, height=height)
+    return chart, counts
 
 
 MAP_FIGURE = "sample_qc_map.png"

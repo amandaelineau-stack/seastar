@@ -102,12 +102,7 @@ would look good). The NOC IFCB QC procedure, in development, will add more.
 st.subheader("Map of the bins")
 saved_meta = common.metadata_rows(folder)
 if saved_meta:
-    map_chart, counts = qc.position_map(qc.frame(stats, saved_meta, bin_problems + common.saved_metadata_problems(folder))[0])
-    if map_chart is not None:
-        st.altair_chart(map_chart, width="content")
-    st.caption(" · ".join(f"{s}: {n}" for s, n in counts.items()) + ". Red: bad bins of this check (flag 4); orange: "
-               "metadata missing or out of range (step 3). Positions from the metadata saved in step 3: the IFCB "
-               "records none, so a bin without metadata cannot be placed. Hover a point for its reasons.")
+    common.flag_map(qc.frame(stats, saved_meta, bin_problems + common.saved_metadata_problems(folder))[0])
 else:
     st.info("The IFCB records no position: the map of the bins appears once the metadata are saved (step 3).")
 
