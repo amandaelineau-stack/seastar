@@ -211,14 +211,16 @@ other pages; each page shows it at the top, with a **Rescan** button.
 
 1. **Browse…** → the sample spreadsheet (CSV or Excel; choose the sheet). It needs one row per bin and a column
    with the bin name; the app finds that column.
-2. In the table, for each EcoTaxa field, choose **From spreadsheet column**, and if needed a value **If empty**
-   (5 m for the depth of the underway intake). The app proposes columns whose names look like the field.
-   Every spreadsheet column not used is shown first, in a yellow row. The closest field of the list is proposed first
-   (`sal`, `sal_corrected`, `Salinity (PSS)` are all `sample_salinity_pss`): tick **Use** and the column fills that
-   field instead of the one used now, which becomes a yellow row (one column per field: e.g. `lat_corrected` instead
-   of `lat`). Only when no field is close, a new field is proposed (`sample_…`, with type and unit): correct it if
-   needed and tick **Use** to add it to the list of every project. Untick **Use** on any row to leave its column out
-   of the EcoTaxa tables (*Status* says which rows are used). `make_metadata.py` prints the same columns with a ready `--map` (or
+2. Three tables, each validated with its own button (nothing changes before):
+   - **1 · Columns of the spreadsheet not used yet** (yellow): for each, the closest field of the list is proposed
+     first (`sal`, `sal_corrected`, `Salinity (PSS)` are all `sample_salinity_pss`, in place of the column it uses
+     now, e.g. `lat_corrected` instead of `lat`); otherwise a new EcoTaxa column (`sample_…`, type, unit) to correct
+     if needed. Tick **Use** → **Use the ticked columns**. Unticked columns stay out of the EcoTaxa tables.
+   - **2 · Columns of the spreadsheet used**: check them; choose another column, change **If empty**, or untick
+     **Use** to leave a column out (it goes back to table 1) → **Apply the changes**. One column per field.
+   - **3 · EcoTaxa columns of the list not in this spreadsheet**, for information: they get **If empty** for every
+     bin (5 m for the depth of the underway intake) → **Apply the values if empty**.
+   `make_metadata.py` prints the unused columns with a ready `--map` (or `--add-field`) line. `make_metadata.py` prints the same columns with a ready `--map` (or
    `--add-field`) line.
    A field added by mistake, or to correct: see **Edit the list** below.
 3. Read the **points to check** (also in `log/metadata_check_<date>.txt` once written). They do not stop the EcoTaxa
