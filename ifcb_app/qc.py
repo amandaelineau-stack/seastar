@@ -64,7 +64,8 @@ def frame(stats, meta_rows, problems):
         meta = pd.DataFrame(meta_rows)
         keep = [c for c in meta.columns if c in numeric]
         meta[keep] = meta[keep].apply(pd.to_numeric, errors="coerce")
-        df = df.merge(meta[["bin"] + keep], on="bin", how="left")
+        flag = ["sample_metadata_flag"] if "sample_metadata_flag" in meta.columns else []  # for the map
+        df = df.merge(meta[["bin"] + keep + flag].astype({c: str for c in flag}), on="bin", how="left")
     every = {}
     for p in problems:
         if p.get("bin"):
@@ -109,31 +110,92 @@ def colour(values):
 
 
 BAD = "#c62828"  # red: a bad bin of the raw data check (flag 4)
-FLAG_STATUS = {BAD: "🔴 bad run (flag 4)", TO_CHECK: "🟠 metadata to check", SERIES: "🔵 nothing to report"}
+STATUSES = [("bad run (flag 4)", BAD), ("metadata to check", TO_CHECK), ("nothing to report", SERIES)]
+BAD_RUN = ("Incomplete run", "Few images per trigger")  # the checks of step 2 that flag a bin 4
+WORLD = Path(__file__).with_name("world-110m.json")  # Natural Earth 1:110m land (public domain), via vega-datasets
 
 
-def flag_points(meta_rows, acq_flags, position_bins=()):
-    """The bins on the map of steps 2 and 3, coloured by their worst problem: red = bad run (flag 4 of the raw data
-    check, acq_flags {bin: flag}), orange = metadata to check (sample_metadata_flag 3 or 9, or a bin of position_bins:
-    position jump, lat/lon out of range), blue = nothing to report. The positions come from the metadata of step 3:
-    the IFCB records none. Returns (DataFrame bin, lat, lon, color, status; {status: n} with the bins without position)."""
-    points, counts = [], {}
-    for r in meta_rows or []:
-        b = r["bin"]
-        if str(acq_flags.get(b, "")) == "4":
-            color = BAD
-        elif str(r.get("sample_metadata_flag", "1")) in ("3", "9") or b in position_bins:
-            color = TO_CHECK
-        else:
-            color = SERIES
-        try:
-            lat, lon = float(r.get("object_lat", "")), float(r.get("object_lon", ""))
-        except (TypeError, ValueError):
-            counts["⚪ no position"] = counts.get("⚪ no position", 0) + 1
-            continue
-        points.append({"bin": b, "lat": lat, "lon": lon, "color": color, "status": FLAG_STATUS[color]})
-        counts[FLAG_STATUS[color]] = counts.get(FLAG_STATUS[color], 0) + 1
-    return pd.DataFrame(points, columns=["bin", "lat", "lon", "color", "status"]), counts
+def map_status(df):
+    """The worst problem of each bin, for the map: bad run (red), metadata to check (orange: sample_metadata_flag 3 or
+    9, position jump, lat/lon out of range), nothing to report (blue)."""
+    to_check = df.get("to check", pd.Series("", index=df.index)).fillna("")
+    meta_flag = df.get("sample_metadata_flag", pd.Series("", index=df.index)).fillna("").astype(str)
+    position = why(df, MAP) != "ok"
+    return pd.Series(["bad run (flag 4)" if any(c in t for c in BAD_RUN) else
+                      "metadata to check" if f in ("3", "9") or p else "nothing to report"
+                      for t, f, p in zip(to_check, meta_flag, position)], index=df.index)
+
+
+def position_map(df, width=900, height=460):
+    """(Altair map of the bins with a position, or None; {status: number of bins, with 'no position'}). Land, a grid
+    with the degrees on the edges, and one point per bin coloured by map_status. Mercator, framed on the bins. The
+    positions come from the metadata of step 3: the IFCB records none."""
+    import json
+    import math
+
+    import altair as alt
+    if not {"object_lat", "object_lon"} <= set(df.columns):
+        return None, {}
+    d = df.assign(status=map_status(df))
+    pos = d.dropna(subset=["object_lat", "object_lon"])
+    counts = {s: int((pos["status"] == s).sum()) for s, _ in STATUSES if (pos["status"] == s).any()}
+    if len(d) > len(pos):
+        counts["no position"] = len(d) - len(pos)
+    if pos.empty:
+        return None, counts
+
+    def merc(lat):
+        return math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
+
+    def unmerc(y):
+        return math.degrees(2 * math.atan(math.exp(y)) - math.pi / 2)
+
+    lon0, lon1 = pos["object_lon"].min(), pos["object_lon"].max()
+    lat0, lat1 = pos["object_lat"].min(), pos["object_lat"].max()
+    pad = max(0.2, 0.08 * max(lon1 - lon0, lat1 - lat0))
+    lon0, lon1, lat0, lat1 = lon0 - pad, lon1 + pad, max(lat0 - pad, -80), min(lat1 + pad, 80)
+    scale = min(width / math.radians(lon1 - lon0), height / (merc(lat1) - merc(lat0)))
+    clon, cy = (lon0 + lon1) / 2, (merc(lat0) + merc(lat1)) / 2
+    # what the frame really shows, to put the degrees on its edges
+    left, right = clon - math.degrees(width / 2 / scale), clon + math.degrees(width / 2 / scale)
+    bottom, top = unmerc(cy - height / 2 / scale), unmerc(cy + height / 2 / scale)
+    span = max(right - left, top - bottom)
+    step = next(s for s in (0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 30) if span / s <= 8)
+    projection = dict(type="mercator", scale=scale, center=[clon, unmerc(cy)],
+                                clipExtent=[[0, 0], [width, height]])
+
+    def ticks(a, b):
+        margin = 0.04 * (b - a)  # a label on the very edge of the frame is cut
+        return [round(k * step, 6) for k in range(math.ceil((a + margin) / step), math.floor((b - margin) / step) + 1)]
+
+    def degrees(v, pos_, neg):
+        return f"{abs(v):g}°{pos_ if v >= 0 else neg}"
+
+    with open(WORLD, encoding="utf-8") as f:
+        world = json.load(f)
+    land = alt.Chart(alt.Data(values=world, format=alt.DataFormat(type="topojson", feature="land"))).mark_geoshape(
+        fill="#e9ecef", stroke="#b8c2c8", strokeWidth=0.6).project(**projection)
+    grid = alt.Chart(alt.graticule(step=[step, step])).mark_geoshape(
+        filled=False, stroke="#c9d1d6", strokeWidth=0.5, strokeDash=[3, 3]).project(**projection)
+    lon_labels = pd.DataFrame([{"lon": v, "lat": bottom, "label": degrees(v, "E", "W")} for v in ticks(left, right)])
+    lat_labels = pd.DataFrame([{"lon": left, "lat": v, "label": degrees(v, "N", "S")} for v in ticks(bottom, top)])
+    text = {"fontSize": 11, "color": "#5a6b74"}
+    labels = [alt.Chart(lon_labels).mark_text(dy=-8, **text).encode(longitude="lon:Q", latitude="lat:Q", text="label:N")
+              .project(**projection),
+              alt.Chart(lat_labels).mark_text(dx=6, align="left", **text).encode(
+                  longitude="lon:Q", latitude="lat:Q", text="label:N").project(**projection)]
+    present = [(s, c) for s, c in STATUSES if s in counts]
+    cols = [c for c in ("bin", "time", "object_lat", "object_lon", "status", "to check") if c in pos.columns]
+    points = alt.Chart(pos[cols].assign(top=(pos["status"] != "nothing to report").astype(int))).mark_circle(
+        size=45, opacity=0.85).encode(
+        longitude="object_lon:Q", latitude="object_lat:Q",
+        color=alt.Color("status:N", title=None, scale=alt.Scale(domain=[s for s, _ in present], range=[c for _, c in present]),
+                        legend=alt.Legend(orient="top")),
+        order=alt.Order("top:Q"),
+        tooltip=["bin", alt.Tooltip("time:T", format="%Y-%m-%d %H:%M"), alt.Tooltip("object_lat:Q", title="latitude", format=".4f"),
+                 alt.Tooltip("object_lon:Q", title="longitude", format=".4f"), "status", "to check"]).project(**projection)
+    chart = alt.layer(land, grid, points, *labels).properties(width=width, height=height)
+    return chart, counts
 
 
 MAP_FIGURE = "sample_qc_map.png"
@@ -171,12 +233,9 @@ def charts(df, variables, depth):
             color=colour(d["why"]), order=alt.Order("flagged:Q"), tooltip=tooltip + extra).properties(height=260))
 
     figures = {}
-    if {"object_lat", "object_lon"} <= set(df.columns) and df["object_lat"].notna().any():
-        pos = data([MAP], ["object_lat", "object_lon"]).dropna(subset=["object_lat", "object_lon"])
-        figures[MAP_FIGURE] = ("Sample positions (longitude, latitude)", alt.Chart(pos).mark_circle(size=60, opacity=0.8).encode(
-            x=alt.X("object_lon:Q", title="Longitude (degrees E)", scale=alt.Scale(zero=False, padding=12)),
-            y=alt.Y("object_lat:Q", title="Latitude (degrees N)", scale=alt.Scale(zero=False, padding=12)),
-            color=colour(pos["why"]), order=alt.Order("flagged:Q"), tooltip=tooltip).properties(height=450))
+    chart, _ = position_map(df)
+    if chart is not None:
+        figures[MAP_FIGURE] = ("Sample positions", chart)
     for c, title, by_depth in variables:
         figures[figure_name(c, "time")] = (f"{title} against time",
                                        scatter(data([c], [c]), "time:T", f"{c}:Q", "Time (UTC)", title))
