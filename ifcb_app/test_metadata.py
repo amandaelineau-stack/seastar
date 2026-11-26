@@ -125,7 +125,7 @@ def test_new_columns():
                           ("ctd_id (corrected)", "ctd_id")):
         p = metadata.propose_field(column, [{column: "1"}])  # a field of the list before a new name
         assert p["existing"] and p["field"] == field, (column, p)
-    assert metadata.propose_field("fluo_corrected", [{"fluo_corrected": "1"}])["ecotaxa_column"] == "sample_fluo"
+    assert metadata.propose_field("oxygen_corrected", [{"oxygen_corrected": "1"}])["ecotaxa_column"] == "sample_oxygen"
     two = [{"latitude": "48.9", "lat_corrected": "48.95", "oxygen": "250"}]  # two latitudes: warn, one goes to EcoTaxa
     assert metadata.competing_columns(["lat_corrected", "oxygen"], two, metadata.load_fields(),
                                       {"lat": "latitude"}) == {"lat": ["latitude", "lat_corrected"]}

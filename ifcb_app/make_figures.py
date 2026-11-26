@@ -2,7 +2,8 @@
 
     python make_figures.py <project folder>
 
-Saves the map and the figures against time and depth as PNG in figures/ (needs vl-convert-python), and the bins
+Saves the map and the figures against time, depth (when it varies), longitude and latitude as PNG in figures/
+(needs vl-convert-python), and the bins
 that look failed and the gaps in the sampling in log/bins_check_<date>.txt. In each figure, only the bins flagged for
 a reason shown by that figure are coloured, and the legend names the reason (the metadata points come from the last
 log/metadata_check_<date>.txt). The instrument values (images per trigger, stream position and width, cut images,

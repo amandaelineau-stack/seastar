@@ -236,12 +236,19 @@ def charts(df, variables, depth):
     chart, _ = position_map(df)
     if chart is not None:
         figures[MAP_FIGURE] = ("Sample positions", chart)
+    depth_varies = bool(depth) and df[depth].nunique() > 1  # a constant depth (underway intake) shows nothing
+    position = {"object_lon", "object_lat"} <= set(df.columns) and df["object_lon"].notna().any()
     for c, title, by_depth in variables:
         figures[figure_name(c, "time")] = (f"{title} against time",
                                        scatter(data([c], [c]), "time:T", f"{c}:Q", "Time (UTC)", title))
-        if depth and by_depth:
+        if depth_varies and by_depth:
             figures[figure_name(c, "depth")] = (f"{title} against depth", scatter(
                 data([c, depth], [c, depth]), f"{c}:Q", f"{depth}:Q", title, "Depth (m)", reverse_y=True))
+        if position and by_depth:  # west -> east and south -> north
+            figures[figure_name(c, "longitude")] = (f"{title} against longitude", scatter(
+                data([c, MAP], [c, "object_lon"]), "object_lon:Q", f"{c}:Q", "Longitude (degrees E, west → east)", title))
+            figures[figure_name(c, "latitude")] = (f"{title} against latitude", scatter(
+                data([c, MAP], [c, "object_lat"]), "object_lat:Q", f"{c}:Q", "Latitude (degrees N, south → north)", title))
     return figures
 
 
