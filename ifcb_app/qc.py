@@ -238,13 +238,17 @@ BATHY_URL = ("https://coastwatch.pfeg.noaa.gov/erddap/griddap/etopo180.csv?"
 BATHY_CACHE = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "ifcb_app" / "bathymetry"
 
 
-@functools.lru_cache(maxsize=16)
+BATHY_ERROR = {}  # the reason the last isobaths could not be drawn, shown under the maps (empty when they are)
+
+
 def bathymetry(lon0, lon1, lat0, lat1):
     """DataFrame lon, lat, depth, line, order: the ISOBATHS of the box, from NOAA ETOPO1 (asked once per box, then
-    kept in BATHY_CACHE). Empty when offline: the maps are drawn without them. Only the box is sent to NOAA."""
+    kept in BATHY_CACHE). Empty when it fails (offline, matplotlib missing…): the maps are drawn without them, the
+    reason is in BATHY_ERROR, and it is tried again next time (only a success is kept). Only the box is sent to NOAA."""
     lon0, lon1, lat0, lat1 = (math.floor(lon0), math.ceil(lon1), max(math.floor(lat0), -89), min(math.ceil(lat1), 89))
     cache = BATHY_CACHE / f"isobaths_{lon0}_{lon1}_{lat0}_{lat1}.csv"
     if cache.is_file():
+        BATHY_ERROR.clear()
         return pd.read_csv(cache)
     try:
         import io
@@ -269,8 +273,10 @@ def bathymetry(lon0, lon1, lat0, lat1):
         out = pd.DataFrame(rows, columns=["lon", "lat", "depth", "line", "order"])
         BATHY_CACHE.mkdir(parents=True, exist_ok=True)
         out.to_csv(cache, index=False)
+        BATHY_ERROR.clear()
         return out
-    except Exception:  # offline, server down: no isobaths
+    except Exception as e:  # offline, server down, matplotlib missing: no isobaths, and say why
+        BATHY_ERROR["reason"] = f"{type(e).__name__}: {e}"
         return pd.DataFrame(columns=["lon", "lat", "depth", "line", "order"])
 
 
