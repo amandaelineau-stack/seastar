@@ -11,3 +11,4 @@ chla,sample_chla_mg_m3,f,mg m-3,,0,100,Chlorophyll a
 niskin_id,sample_niskin_id,t,,,,,Niskin bottle number
 ctd_id,sample_ctd_id,t,,,,,CTD cast identifier
 comment,sample_comment,t,,,,,Free comment on the sample
+fluorescence,sample_fluo_v,f,volt,,,,"Chlorophyll a fluorescence, raw output of the fluorometer (not calibrated to chlorophyll a: see chla)"
