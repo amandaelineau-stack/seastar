@@ -1,5 +1,6 @@
 """IFCB project folders: naming, creation and scanning (no UI code here)."""
 import csv
+import io
 import json
 import os
 import re
@@ -427,14 +428,23 @@ def skip_bad(root, bins, include_bad):
 
 
 def write_qc(root, stats, problems):
-    """metadata/qc_bins.csv (the QC_EXPORT columns of qc_rows): put in the EcoTaxa tables as sample columns. Returns its path."""
+    """metadata/qc_bins.csv (the QC_EXPORT columns of qc_rows): put in the EcoTaxa tables as sample columns. Returns its path.
+    Written only when its content changes: a newer file makes the zips look older than the raw data check."""
     rows = [{k: r[k] for k in ["bin"] + QC_EXPORT} for r in qc_rows(stats, problems)]
     path = os.path.join(root, "metadata", QC_CSV)
+    text = io.StringIO(newline="")
+    w = csv.DictWriter(text, list(rows[0]) if rows else ["bin"])
+    w.writeheader()
+    w.writerows(rows)
+    try:
+        with open(path, newline="", encoding="utf-8") as f:
+            if f.read() == text.getvalue():
+                return path
+    except OSError:
+        pass
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, list(rows[0]) if rows else ["bin"])
-        w.writeheader()
-        w.writerows(rows)
+        f.write(text.getvalue())
     return path
 
 

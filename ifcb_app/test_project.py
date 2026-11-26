@@ -108,6 +108,10 @@ def test_create_and_scan():
         assert project.bad_bins(root) == ["D20260802T010000_IFCB225"]
         assert any("older format" in w for w in project.warnings(root, "ecotaxa"))
         qc_file = project.write_qc(root, cruise, project.check_bins(cruise, t))
+        assert project.bad_bins(root) == ["D20260802T010000_IFCB225", "D20260802T060000_IFCB225"], project.bad_bins(root)
+        os.utime(qc_file, (1, 1))  # the same content again: the file is not rewritten
+        project.write_qc(root, cruise, project.check_bins(cruise, t))
+        assert os.path.getmtime(qc_file) == 1
         assert found == {("D20260802T010000_IFCB225", "Few images per trigger"),
                          ("D20260802T060000_IFCB225", "Incomplete run")}, found
 
