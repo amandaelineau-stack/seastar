@@ -261,10 +261,14 @@ df, variables, depth = qc.frame(stats, meta_rows, meta_problems + bin_problems)
 figures = qc.charts(df, variables, depth)
 TOP_MAPS = [("rois_per_ml", "Particle concentration (images mL⁻¹)"), ("sample_chla_mg_m3", "Chlorophyll a (mg m⁻³)")]
 st.markdown("#### Maps along the track")
-st.caption("Each point is a bin at its position, coloured by its value (violet low, yellow high). Grey: the coast "
-           "(Natural Earth 1:50m); blue: the isobaths 200, 1000, 2000 and 4000 m (NOAA ETOPO1, hover one for its depth; "
-           "not drawn offline). Shift + mouse wheel "
-           "to zoom, drag to move, double-click to reset; hover a point for its values.")
+globe_col, text_col = st.columns([1, 5], vertical_alignment="center")
+placed = df.dropna(subset=["object_lon", "object_lat"]) if {"object_lon", "object_lat"} <= set(df.columns) else df.iloc[0:0]
+if len(placed):
+    globe_col.altair_chart(qc.locator_globe(placed["object_lon"], placed["object_lat"]), width="content")
+text_col.caption("The globe shows where the cruise is (red frame). On the maps, each point is a bin at its position, "
+                 "coloured by its value (violet low, yellow high). Dark grey: the coast (Natural Earth 1:50m); blue: "
+                 "the isobaths 200, 1000, 2000 and 4000 m, with their depth (NOAA ETOPO1; not drawn offline). "
+                 "Shift + mouse wheel to zoom, drag to move, double-click to reset; hover a point for its values.")
 for col, (c, title) in zip(st.columns(2), TOP_MAPS):
     col.markdown(f"**{title}**")
     key = qc.figure_name(c, "map")
