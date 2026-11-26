@@ -269,13 +269,13 @@ for col, (c, title) in zip(st.columns(2), TOP_MAPS):
     col.markdown(f"**{title}**")
     key = qc.figure_name(c, "map")
     if key in figures:
-        col.altair_chart(figures[key][1].properties(height=380), width="stretch")
+        col.altair_chart(figures[key][1], width="stretch")
     else:
         col.info("No value or no position for this variable.")
 
 st.markdown("#### Quality flags")
 _, counts = qc.position_map(df)
-left, right = st.columns([3, 2])
+left, right = st.columns(2)
 flags = qc.flag_chart(df)
 if flags is not None:
     left.altair_chart(flags, width="stretch")

@@ -274,13 +274,26 @@ def bathymetry(lon0, lon1, lat0, lat1):
         return pd.DataFrame(columns=["lon", "lat", "depth", "line", "order"])
 
 
-def track_axes(lon, lat):
+MAP_ASPECT, MAP_HEIGHT = 2.0, 330  # width / height of the track maps, drawn about 660 pixels wide (half the page)
+
+
+def track_axes(lon, lat, aspect=MAP_ASPECT):
     """(x, y, background layers) for a chart of the bins by longitude and latitude: the axes framed on the bins, the
-    coastline and the isobaths behind the points (clipped to the frame)."""
+    coastline and the isobaths behind the points (clipped to the frame). The frame is widened in longitude or latitude
+    so that a kilometre is as long east-west as north-south at that latitude, for a chart `aspect` times wider than
+    high: without it the coast was squeezed (Cornwall looked like Brittany)."""
     import altair as alt
     lon0, lon1, lat0, lat1 = lon.min(), lon.max(), lat.min(), lat.max()
     pad = max(0.1, 0.05 * max(lon1 - lon0, lat1 - lat0))
     lon0, lon1, lat0, lat1 = lon0 - pad, lon1 + pad, lat0 - pad, lat1 + pad
+    km_lon = math.cos(math.radians((lat0 + lat1) / 2))  # a degree of longitude, in degrees of latitude
+    need_lon = aspect * (lat1 - lat0) / km_lon  # the longitudes the frame shows for this latitude range
+    if need_lon > lon1 - lon0:
+        mid = (lon0 + lon1) / 2
+        lon0, lon1 = mid - need_lon / 2, mid + need_lon / 2
+    else:
+        mid, need_lat = (lat0 + lat1) / 2, (lon1 - lon0) * km_lon / aspect
+        lat0, lat1 = mid - need_lat / 2, mid + need_lat / 2
     x = alt.X("lon:Q", title="Longitude (degrees E)", scale=alt.Scale(domain=[lon0, lon1], zero=False, nice=False))
     y = alt.Y("lat:Q", title="Latitude (degrees N)", scale=alt.Scale(domain=[lat0, lat1], zero=False, nice=False))
     span = max(lon1 - lon0, lat1 - lat0)
@@ -311,7 +324,7 @@ def clip_lines(lines, line_id, box, most):
     return kept.iloc[::step]
 
 
-def flag_chart(df, height=260):
+def flag_chart(df, height=MAP_HEIGHT):
     """The bins by longitude and latitude, coloured by map_status (red bad run, orange metadata to check, blue nothing
     to report), the reasons on hover; zoomable. None without positions."""
     import altair as alt
@@ -398,7 +411,7 @@ def charts(df, variables, depth):
                                 legend=alt.Legend(orient="right", gradientLength=200)),
                 tooltip=tooltip + ["object_lat", "object_lon", c])
             figures[figure_name(c, "map")] = (f"{title} along the track",
-                                              zoomable(alt.layer(*background, points).properties(height=260)))
+                                              zoomable(alt.layer(*background, points).properties(height=MAP_HEIGHT)))
     return figures
 
 
